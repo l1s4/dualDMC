@@ -42,12 +42,12 @@ MDMC_T <- function(N, parameters) {
   #	 	- automatic1 & automatic2: "congruent" / "incongruent"
   #  Return: X(t) rt, decision, type of first and second automatic process
 
-  mu_c 		<- parameters$mu_c
-  tau1 		<- parameters$tau1
-  tau2 		<- parameters$tau2
+  mu_c 	<- parameters$mu_c
+  tau1 	<- parameters$tau1
+  tau2 	<- parameters$tau2
   a1 		<- parameters$a1
   a2 		<- parameters$a2
-  sigma 	<- parameters$sigma
+  sigma <- parameters$sigma
   A1 		<- parameters$A1
   A2 		<- parameters$A2
   dt 		<- parameters$dt
@@ -100,14 +100,14 @@ MDMC_T <- function(N, parameters) {
   )
 }
 
-test <- MDMC_T(1500, list(sigma = 0.00, dt = 1, mu_c = 0.5, 
-b = 50, tau1 = 30, tau2 = 30, A1 = 20, A2 = 20, a1 = 2, a2 = 2, 
-automatic1 = "congruent", automatic2 = "congruent"))
+#test <- MDMC_T(1500, list(sigma = 0.00, dt = 1, mu_c = 0.5, 
+#b = 50, tau1 = 30, tau2 = 30, A1 = 20, A2 = 20, a1 = 2, a2 = 2, 
+#automatic1 = "congruent", automatic2 = "congruent"))
 #print(test$mut)
 #print(test$dX)
-print(test$TrajX)
-print(test$rt)
-print(test$dec)
+#print(test$TrajX)
+#print(test$rt)
+#print(test$dec)
 
 MDMC_Sim <- function(N_sim, N_time, param_grid) {
 	# Purpose: simulate multiple DMC-trials per parameter set
@@ -136,21 +136,21 @@ MDMC_Sim <- function(N_sim, N_time, param_grid) {
 							     automatic2 = second)
 				      )
 			)
-			first_pr[i] <- first
-			second_pr[i] <- second
-			rt[i] <- Sim$rt
-			decision[i] <- Sim$dec
+			first_pr[i]   <- first
+			second_pr[i]  <- second
+			rt[i]         <- Sim$rt
+			decision[i]   <- Sim$dec
 		}
 
 		df <- data.frame(first_pr, second_pr, rt, decision)
 
 		df$error <- ifelse(df$decision == "nb", 1, 0)
 
-		df$A1 <- param_grid$A1[j]
-		df$A2 <- param_grid$A2[j]
+		df$A1   <- param_grid$A1[j]
+		df$A2   <- param_grid$A2[j]
 		df$tau1 <- param_grid$tau1[j]
 		df$tau2 <- param_grid$tau2[j]
-		df$b <- param_grid$b[j]
+		df$b    <- param_grid$b[j]
 		df$mu_c <- param_grid$mu_c[j]
 
 		dat_all[[j]] <- df

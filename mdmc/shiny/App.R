@@ -2,7 +2,7 @@ library(shiny)
 source("../MDMC-Functions.R")
 
 ui <- fluidPage(
-  sidebarPanel(
+  sidebarPanel(width = 2, style = "margin: 10px; overflow-y:scroll; max-height: 10%; font-size:14px",
     sliderInput("mu_c", "mu_c [Constant drift rate of controlled process]", 0, 1, 0.5),
     sliderInput("sigma", "sigma [SD of Wiener process]", 0, 10, 4),
     sliderInput("tau1", "tau1 [Scale parameter first Gamma activation function]", 0, 200, 20), 
@@ -14,26 +14,25 @@ ui <- fluidPage(
     sliderInput("a2", "a2 [Shape parameter of second Gamma function]", 2, 10, 2),
     sliderInput("N", "N [Number of Timepoints]", 5, 2000, 500),
     sliderInput("dt", "dt [Step size]", 0.1, 1, 1),
-    selectInput(
-      "automProcess1", "Type of first automatic process",
-      c("congruent", "incongruent")
-    ),
-    selectInput(
-      "automProcess2", "Type of second automatic process",
-      c("congruent", "incongruent")
-    ),
+    sliderInput("nSim", "nSim", 500, 20000, 1000),
+    sliderInput("ndt", "ndt [non-decision time [ms]]", 0, 700, 300),
+    selectInput("automProcess1", "Type of first automatic process", c("congruent", "incongruent")),
+    selectInput("automProcess2", "Type of second automatic process", c("congruent", "incongruent")),
     checkboxInput("YlimFixed", "keep plot y-axis constant at [-50, +50]", value = FALSE),
-    actionButton("SimTrial", "Simulate trial")
+    actionButton("SimTrial", "Simulate trial"), 
+    radioButtons("plottype", "Plot Type", choiceNames = c("Activation + TrialSim", "MeanRTs + MeanERs"), choiceValues = c(1, 2))
   ),
-  mainPanel(wellPanel(plotOutput("AVplot"))),
-  mainPanel(wellPanel(plotOutput("XPlot"))), 
-  mainPanel(wellPanel(plotOutput("MeanRTPlot")))
+  mainPanel(width = 5, wellPanel(plotOutput("AVplot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("XPlot"))), 
+  mainPanel(width = 5, wellPanel(plotOutput("MeanRTPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("MeanERPlot")))
 )
 
 server <- function(input, output, session) {
   
   rv <- reactiveValues(trials = list(), ap1 = list(), ap2 = list())     # to store simulated trials
   
+  # change of parameter values
   observeEvent(input$change, {
     N <- input$N
     updateSliderInput(session, "mu_c", max = N)
@@ -45,8 +44,36 @@ server <- function(input, output, session) {
     updateSliderInput(session, "A2", max = N)
     updateSliderInput(session, "dt", max = N)
     updateSliderInput(session, "b", max = N)
+    updateSliderInput(session, "nSim")
+    updateSliderInput(session, "ndt")
+    
   })
-
+  
+  # simulate Trial button 
+  observeEvent(input$SimTrial, {
+    M <- MDMC_T(
+      N = input$N,
+      parameters = list(
+        mu_c  = input$mu_c,
+        sigma = input$sigma,
+        tau1  = input$tau1,
+        tau2  = input$tau2,
+        a1    = input$a1,
+        a2    = input$a2,
+        A1    = input$A1,
+        A2    = input$A2, 
+        dt    = input$dt, 
+        b     = input$b, 
+        automatic1 = input$automProcess1,
+        automatic2 = input$automProcess2
+      )
+    )
+    
+    trial_id <- paste0("trial_", length(rv$trials) + 1)
+    rv$trials[[trial_id]] <- M$TrajX
+    rv$ap1[[trial_id]] <- M$autom1
+    rv$ap2[[trial_id]] <- M$autom2
+  })
 
   output$AVplot <- renderPlot({
     M <- MDMC_AV(
@@ -88,33 +115,6 @@ server <- function(input, output, session) {
     )
   })
 
-  observeEvent(input$SimTrial, {
-
-    M <- MDMC_T(
-      N = input$N,
-      parameters = list(
-        mu_c  = input$mu_c,
-        sigma = input$sigma,
-        tau1  = input$tau1,
-        tau2  = input$tau2,
-        a1    = input$a1,
-        a2    = input$a2,
-        A1    = input$A1,
-        A2    = input$A2, 
-        dt    = input$dt, 
-        b     = input$b, 
-        automatic1 = input$automProcess1,
-        automatic2 = input$automProcess2
-      )
-    )
-
-    trial_id <- paste0("trial_", length(rv$trials) + 1)
-    rv$trials[[trial_id]] <- M$TrajX
-    rv$ap1[[trial_id]] <- M$autom1
-    rv$ap2[[trial_id]] <- M$autom2
-  })
-
-
   output$XPlot <- renderPlot({
     ymin <- if (input$YlimFixed) -50 else -input$b - 20
     ymax <- if (input$YlimFixed) +50 else input$b + 20
@@ -137,6 +137,68 @@ server <- function(input, output, session) {
 
       lines(trial, col = line_col)
     }
+  })
+  
+  output$MeanRTPlot <- renderPlot({
+    Sim <- MDMC_Sim(
+      N_sim = input$nSim, 
+      N_time = input$N, 
+      param_grid = data.frame(
+        mu_c  = input$mu_c,
+        sigma = input$sigma,
+        tau1  = input$tau1,
+        tau2  = input$tau2,
+        a1    = input$a1,
+        a2    = input$a2,
+        A1    = input$A1,
+        A2    = input$A2, 
+        dt    = input$dt, 
+        b     = input$b 
+      )
+    )[[1]]
+
+    s_dfrt <- aggregate(rt ~ first_pr + second_pr, FUN = mean, data = Sim[Sim$decision == "pb", ])
+    s_dfrt$rt <- s_dfrt$rt + input$ndt    # add non decision time
+
+    ymin <- if (input$YlimFixed) 0 else min(s_dfrt$rt) - 200
+    ymax <- if (input$YlimFixed) 1000 else max(s_dfrt$rt) + 200
+      
+    interaction.plot(
+      x.factor = s_dfrt$first_pr, trace.factor = s_dfrt$second_pr, 
+      response = s_dfrt$rt, ylim = c(ymin, ymax), 
+      xlab = "first", trace.label = "second", col = c("red", "blue"), 
+      ylab = "mean RT [correct trials]", legend = T, 
+      main = "mean RT [correct trials] per condition"
+    )
+  })
+
+  output$MeanERPlot <- renderPlot({
+    Sim <- MDMC_Sim(
+      N_sim = input$nSim, 
+      N_time = input$N, 
+      param_grid = data.frame(
+        mu_c  = input$mu_c,
+        sigma = input$sigma,
+        tau1  = input$tau1,
+        tau2  = input$tau2,
+        a1    = input$a1,
+        a2    = input$a2,
+        A1    = input$A1,
+        A2    = input$A2, 
+        dt    = input$dt, 
+        b     = input$b 
+      )
+    )[[1]]
+
+    s_dfer <- aggregate(error ~ first_pr + second_pr, FUN = mean, data = Sim)
+
+    interaction.plot(
+      x.factor = s_dfer$first_pr, trace.factor = s_dfer$second_pr, 
+      response = s_dfer$error, ylim = c(0, 1), 
+      xlab = "first", ylab = "mean ER", col = c("red", "blue"), 
+      trace.label = "second", legend = T, 
+      main = "mean ER per condition"
+    )
   })
 }
 
