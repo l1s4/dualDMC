@@ -100,7 +100,7 @@ MDMC_T <- function(N, parameters) {
   )
 }
 
-#test <- MDMC_T(1500, list(sigma = 0.00, dt = 1, mu_c = 0.5, 
+#test <- MDMC_T(1500, list(sigma = 0.00, dt = 0.01, mu_c = 0.5, 
 #b = 50, tau1 = 30, tau2 = 30, A1 = 20, A2 = 20, a1 = 2, a2 = 2, 
 #automatic1 = "congruent", automatic2 = "congruent"))
 #print(test$mut)
@@ -184,37 +184,33 @@ MDMC_Sim <- function(N_sim, N_time, param_grid) {
 #print(Sim)
 
 
-MDDM_T <- function(N, parameters) {
+MRDM_T <- function(N, parameters) {
 	dt 	  <- parameters$dt
 	sigma <- parameters$sigma
 	mu_c 	<- parameters$mu_c
 	b	    <- parameters$b
 	P1     <- parameters$P1
 	P2     <- parameters$P2
-
-  delta_1 <- parameters$delta_1
-  delta_2 <- parameters$delta_2
+  delta1 <- parameters$delta1
+  delta2 <- parameters$delta2
 
   automatic1 <- parameters$automatic1
   automatic2 <- parameters$automatic2
-  auto1 <- ifelse(automatic1 == "congruent", 1, 0)
-  auto2 <- ifelse(automatic2 == "congruent", 1, 0)
 
 	t <- seq(dt, N, by = dt)
-
-
+	
 	dX_c  <- mu_c * dt + sigma * sqrt(dt) * rnorm(length(t))
-	dX_a1 <- (delta_1 * auto1) * dt + sigma * sqrt(dt) * rnorm(length(t))
-	dX_a2 <- (delta_2 * auto2) * dt + sigma * sqrt(dt) * rnorm(length(t))
+	dX_a1 <- delta1 * dt + sigma * sqrt(dt) * rnorm(length(t))
+	dX_a2 <- delta2 * dt + sigma * sqrt(dt) * rnorm(length(t))
 	X_c   <- cumsum(dX_c)     	# X(t) controlled
 	X_a1  <- cumsum(dX_a1)     	# X(t) auto 1
 	X_a2  <- cumsum(dX_a2)     	# X(t) auto 2
 
 	# Get RT for each process
   
-	# lower b by process-specific parameter P
-	if(auto1  == 1) {b <- b - P1}
-	if(auto2 == 1) {b <- b - P2}
+	# lower b by process-specific parameter P ('priming')
+	if(automatic1  == "congruent") {b <- b - P1}
+	if(automatic2 == "congruent") {b <- b - P2}
 	
 	pb_c <- suppressWarnings(min(which(X_c > b), na.rm = TRUE))
 	if (is.infinite(pb_c)) pb_c <- Inf
@@ -242,12 +238,12 @@ MDDM_T <- function(N, parameters) {
 
 }
 
-A <- MDDM_T(500, list(dt = 0.1, mu_c = 0.5, delta_1 = 0.2, delta_2 = 0.8, 
-                      sigma = 4, b = 50, P1 = 5, P2 = 5,
+A <- MRDM_T(500, list(dt = 0.1, mu_c = 0.5, delta1 = 0.2, delta2 = 0.8, 
+                      sigma = 0, b = 50, P1 = 5, P2 = 5,
                       automatic1 = "congruent", automatic2 = "incongruent"))
-print(A)
+print(A$rt)
 
-MDDM_Sim <- function(N_sim, N_time, param_grid) {
+MRDM_Sim <- function(N_sim, N_time, param_grid) {
   dat_all <- list()
   
   # Loop parameter sets
@@ -265,7 +261,7 @@ MDDM_Sim <- function(N_sim, N_time, param_grid) {
 			first <- sample(c("congruent", "incongruent"), 1)
 			second <- sample(c("congruent", "incongruent"), 1)
 
-			Sim <- MDDM_T(N = N_time, 
+			Sim <- MRDM_T(N = N_time, 
 				      parameters = as.list(c(param_grid[j, ], 
 							     automatic1 = first, 
 							     automatic2 = second)
@@ -284,9 +280,11 @@ MDDM_Sim <- function(N_sim, N_time, param_grid) {
                   ifelse(decision == "c", 0, 1)))
 
 		df$mu_c <- param_grid$mu_c[j]
-		df$delta_1 <- param_grid$delta_1[j]
-		df$delta_2 <- param_grid$delta_2[j]
+		df$delta1 <- param_grid$delta1[j]
+		df$delta2 <- param_grid$delta2[j]
 		df$b <- param_grid$b[j]
+		df$P1 <- param_grid$P1[j]
+		df$P2 <- param_grid$P2[j]
 
 		dat_all[[j]] <- df
 	}
@@ -301,7 +299,7 @@ MDDM_Sim <- function(N_sim, N_time, param_grid) {
 #param_grid$sigma <- 4
 #param_grid$dt <- 1
 #param_grid$mu_c <- 0.25
-#test <- MDDM_Sim(50, 1000, param_grid)
+#test <- MRDM_Sim(50, 1000, param_grid)
 #str(test)
 #test[[1]]
 #
