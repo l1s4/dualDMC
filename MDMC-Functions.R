@@ -189,6 +189,8 @@ MDDM_T <- function(N, parameters) {
 	sigma <- parameters$sigma
 	mu_c 	<- parameters$mu_c
 	b	    <- parameters$b
+	P1     <- parameters$P1
+	P2     <- parameters$P2
 
   delta_1 <- parameters$delta_1
   delta_2 <- parameters$delta_2
@@ -209,6 +211,11 @@ MDDM_T <- function(N, parameters) {
 	X_a2  <- cumsum(dX_a2)     	# X(t) auto 2
 
 	# Get RT for each process
+  
+	# lower b by process-specific parameter P
+	if(auto1  == 1) {b <- b - P1}
+	if(auto2 == 1) {b <- b - P2}
+	
 	pb_c <- suppressWarnings(min(which(X_c > b), na.rm = TRUE))
 	if (is.infinite(pb_c)) pb_c <- Inf
 
@@ -235,8 +242,10 @@ MDDM_T <- function(N, parameters) {
 
 }
 
-#A <- MDDM_T(500, list(dt = 0.1, mu_c = 0.5, delta_1 = 0.2, delta_2 = 0.8, sigma = 4, b = 50, automatic1 = "congruent", automatic2 = "incongruent"))
-#print(A)
+A <- MDDM_T(500, list(dt = 0.1, mu_c = 0.5, delta_1 = 0.2, delta_2 = 0.8, 
+                      sigma = 4, b = 50, P1 = 5, P2 = 5,
+                      automatic1 = "congruent", automatic2 = "incongruent"))
+print(A)
 
 MDDM_Sim <- function(N_sim, N_time, param_grid) {
   dat_all <- list()
