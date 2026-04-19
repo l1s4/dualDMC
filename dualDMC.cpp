@@ -1,7 +1,7 @@
 #include <Rcpp.h>
 
 // [[Rcpp::export]]
-Rcpp::List simMDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2, 
+Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2, 
     double dt, double sigma, int auto1, int auto2) {
         /**
          Simulate single trial of MDMC 
@@ -19,6 +19,8 @@ Rcpp::List simMDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
         double t = dt; 
         double X = 0.0; 
         int dec = 0;
+        std::vector<int> x_traj;    // dynamic vector to store trajectory
+        
         // with a1 = a2 = 2
         while (X > -b && X < b) {
             // drifts of automatic processes
@@ -32,6 +34,7 @@ Rcpp::List simMDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
 
             X += dX;     // X(t)
             t += dt;     // increase time
+            x_traj.push_back(X); 
         }
 
         if (X < 0){dec = -1;}        // hit -b first (i.e. incorrect response)
@@ -39,13 +42,14 @@ Rcpp::List simMDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
 
         return Rcpp::List::create(
             Rcpp::Named("rt") = t, 
-            Rcpp::Named("dec") = dec
+            Rcpp::Named("dec") = dec, 
+            Rcpp::Named("XTraj") = x_traj
         );
     }; 
 
 
 // [[Rcpp::export]]
-Rcpp::List simMDMC(Rcpp::DataFrame df, int N_sim) {
+Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
 
     Rcpp::NumericVector mu_c    = df["mu_c"]; 
     Rcpp::IntegerVector b       = df["b"];
@@ -87,7 +91,7 @@ Rcpp::List simMDMC(Rcpp::DataFrame df, int N_sim) {
         for (int j = 0; j < N_sim; j++) {
             int auto1 = Rcpp::sample(in, 1, false)[0];
             int auto2 = Rcpp::sample(in, 1, false)[0];
-            Rcpp::List sim = simMDMCtrial(mu_c[i], b[i], A1[i], A2[i], tau1[i], 
+            Rcpp::List sim = simDDMCtrial(mu_c[i], b[i], A1[i], A2[i], tau1[i], 
                 tau2[i], dt[i], sigma[i], auto1, auto2);
             
             mu_c_out[row_out]   = mu_c[i]; 
