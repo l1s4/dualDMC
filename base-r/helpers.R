@@ -207,3 +207,23 @@ plt_P_delta <- function(df, type) {
            space = "right", cex = .7)
   }
 }
+
+
+# MDMC plot ECDFs
+plt_cdfs_mdmc <- function(df) {
+  ggplot(df, aes(rt, colour = congruency)) + 
+    stat_ecdf(geom = "point") + theme_classic()
+}
+
+# Delta plots MDMC
+plt_delta_mdmc <- function(df1, df2) {
+  probs <- seq(0.1, 0.9, by = 0.1)      # quantile probabilities
+  q1 <- quantile(df1$rt, probs = probs)
+  q2 <- quantile(df2$rt, probs = probs)
+  delta <- q1 - q2
+  mean_rt <- (q1 + q2) / 2
+  
+  # Plot
+  plot(mean_rt, delta, type = "b", pch = 16, 
+       xlab = "Mean RT (ms)", ylab = "delta", main = "Delta Plot")
+}
