@@ -19,7 +19,7 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
         double t = dt; 
         double X = 0.0; 
         int dec = 0;
-        std::vector<int> x_traj;    // dynamic vector to store trajectory
+        std::vector<double> x_traj;    // dynamic vector to store trajectory
         
         // with a1 = a2 = 2
         while (X > -b && X < b) {
@@ -34,15 +34,15 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
 
             X += dX;     // X(t)
             t += dt;     // increase time
-            x_traj.push_back(X); 
+            x_traj.push_back(X);
         }
 
-        if (X < 0){dec = -1;}        // hit -b first (i.e. incorrect response)
-        if (X > 0){dec = 1;}         // hit b first (i.e. correct response)
+        if (X <= -b){dec = -1;}        // hit -b first (i.e. incorrect response)
+        if (X >= b){dec = 1;}         // hit b first (i.e. correct response)
 
         return Rcpp::List::create(
             Rcpp::Named("rt") = t, 
-            Rcpp::Named("dec") = dec, 
+            Rcpp::Named("dec") = dec,
             Rcpp::Named("XTraj") = x_traj
         );
     }; 
@@ -129,3 +129,52 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
         Rcpp::Named("set_id")   = set_id
     ); 
 }; 
+
+
+// [[Rcpp::export]]
+Rcpp::List simDDMCactivation(int N, double mu_c, int b, int A1, int A2, 
+    int tau1, int tau2, int auto1, int auto2) {
+        /**
+         Simulate activation functions of DDMC 
+         Note: assuming a = 2
+         @param N number of timepoints to be simulated [ms]
+         @param mu_c drift rate of controlled process
+         @param b boundary / threshold 
+         @param A1, A2 amplitudes of automatic activations
+         @param tau1, tau2 timepoint of max automatic activation 
+         @param dt time discretization
+         @param auto1, auto2 type of automatic process (1 = congruent, -1 = incongruent)
+         @return reaction time rt and decision of trial
+         */
+
+        double X = 0.0; 
+        std::vector<double> auto1_traj;
+        std::vector<double> auto2_traj;
+
+        std::vector<double> cont_traj(N); 
+        for (size_t i = 0; i < cont_traj.size(); i++) {
+            cont_traj[i] = (i + 1) * mu_c;
+        }
+        std::vector<double> super_traj;
+        
+        // with a1 = a2 = 2
+        for (double t = 0; t < N; t++) {
+            // activation of automatic processes
+            double mu_a1 = auto1 * A1 * exp(-t / tau1) * ((t * exp(1)) / tau1); 
+            double mu_a2 = auto2 * A2 * exp(-t / tau2) * ((t * exp(1)) / tau2); 
+            // superimposed activation
+            double mu_t = mu_c + mu_a1 + mu_a2;
+
+            auto1_traj.push_back(mu_a1); 
+            auto2_traj.push_back(mu_a2); 
+            super_traj.push_back(mu_t); 
+
+        }
+
+        return Rcpp::List::create(
+            Rcpp::Named("cont_traj") = cont_traj, 
+            Rcpp::Named("auto1_traj") = auto1_traj,
+            Rcpp::Named("auto2_traj") = auto2_traj, 
+            Rcpp::Named("super_traj") = super_traj
+        );
+    }; 
