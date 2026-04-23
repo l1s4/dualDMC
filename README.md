@@ -1,4 +1,3 @@
-# double-conflict-models
-Models for double-conflict tasks
+# dualDMC
 
-MDMC
+Extension of the Diffusion Model for Conflict Tasks (DMC) for two sources of irrelevant information
