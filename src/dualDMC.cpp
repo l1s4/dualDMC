@@ -4,8 +4,7 @@
 Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2, 
     double dt, double sigma, int auto1, int auto2) {
         /**
-         Simulate a single trial of dualDMC (DDMC) 
-         Note: assuming a1 = a2 = 2
+         @brief Simulate a single trial of dualDMC (DDMC). Note: assuming a1 = a2 = 2
          @param mu_c drift rate of controlled process
          @param b boundary / threshold 
          @param A1, A2 amplitudes of automatic activations
@@ -19,19 +18,19 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
         double t = dt; 
         double X = 0.0; 
         int dec = 0;                   // decision
-        std::vector<double> x_traj;    // dynamic vector to store trajectory
+        double t_max = 7000;            // set max time for safety
+        std::vector<double> x_traj;    // to store trajectory
+        x_traj.reserve(t_max / dt); 
 
         const double e = exp(1.0);
         const double sqrt_dt = sqrt(dt); 
         
         // with a1 = a2 = 2
-        double t_max = 7000;            // set max time for safety
         while (X > -b && X < b && t <= t_max) {
             // drifts of automatic processes
             double mu_a1 = auto1 * A1 * exp(-t / tau1) * (e / tau1) * (1 - t / tau1); 
             double mu_a2 = auto2 * A2 * exp(-t / tau2) * (e / tau2) * (1 - t / tau2); 
-            // superimposed drift
-            double mu_t = mu_c + mu_a1 + mu_a2;
+            double mu_t = mu_c + mu_a1 + mu_a2;     // superimposed drift
 
             // simulate noisy process
             double dX = mu_t * dt + sigma * sqrt_dt * R::rnorm(0.0, 1.0);
@@ -41,9 +40,9 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
             x_traj.push_back(X);
         }
 
-        if (t >= t_max){dec = 0;}   // no decision
         if (X <= -b){dec = -1;}     // hit -b first (i.e. incorrect response)
-        if (X >= b){dec = 1;}       // hit b first (i.e. correct response)
+        else if (X >= b){dec = 1;}       // hit b first (i.e. correct response)
+        else {dec = 0; Rcpp::Rcout << "No decision made!" << "\n";} // no decision
 
         return Rcpp::List::create(
             Rcpp::Named("rt") = t, 
@@ -55,37 +54,28 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
 
 // [[Rcpp::export]]
 Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
+    /**
+     @brief Simulate multiple DDMC trials. Note: assuming a1 = a2 = 2
+     @param df R DataFrame with names of DDMC parameters as columnames
+     @param N_sim number of simulations per parameter set
+     @return reaction time rt (ms) and decision of trial (1 = correct, -1 = incorrect)
+     */
 
-    Rcpp::NumericVector mu_c    = df["mu_c"]; 
-    Rcpp::IntegerVector b       = df["b"];
-    Rcpp::IntegerVector A1      = df["A1"]; 
-    Rcpp::IntegerVector A2      = df["A2"]; 
-    Rcpp::IntegerVector tau1    = df["tau1"]; 
-    Rcpp::IntegerVector tau2    = df["tau2"]; 
-    Rcpp::NumericVector dt      = df["dt"]; 
-    Rcpp::NumericVector sigma   = df["sigma"];
+    Rcpp::NumericVector mu_c = df["mu_c"], dt = df["dt"], sigma = df["sigma"];
+    Rcpp::IntegerVector b = df["b"], A1 = df["A1"], A2 = df["A2"], 
+                        tau1 = df["tau1"], tau2 = df["tau2"]; 
 
     int n_rows = df.nrows(); 
     int n_out = n_rows * N_sim;  
 
     // pre-allocate vectors for parameters
-    Rcpp::NumericVector mu_c_out(n_out); 
-    Rcpp::IntegerVector b_out(n_out);
-    Rcpp::IntegerVector A1_out(n_out);
-    Rcpp::IntegerVector A2_out(n_out);
-    Rcpp::IntegerVector tau1_out(n_out);
-    Rcpp::IntegerVector tau2_out(n_out);
-    Rcpp::NumericVector dt_out(n_out);
-    Rcpp::NumericVector sigma_out(n_out);
-    // pre-allocate vectors for simulation results
-    Rcpp::IntegerVector cong1_out(n_out);
-    Rcpp::IntegerVector cong2_out(n_out);
-    Rcpp::NumericVector rt_out(n_out);
-    Rcpp::IntegerVector dec_out(n_out);
-    // pre-allocate vector for parameter set id
-    Rcpp::IntegerVector set_id(n_out);
+    Rcpp::NumericVector mu_c_out(n_out), b_out(n_out), dt_out(n_out), 
+                        sigma_out(n_out), rt_out(n_out); 
+    Rcpp::IntegerVector A1_out(n_out), A2_out(n_out), tau1_out(n_out), 
+                        tau2_out(n_out), cong1_out(n_out), cong2_out(n_out), 
+                        dec_out(n_out), set_id(n_out); 
 
-    // to sample congruencies
+    // sample congruencies
     Rcpp::IntegerVector in = Rcpp::IntegerVector::create(-1, 1);
     Rcpp::IntegerVector auto1_vals = Rcpp::sample(in, n_out, true); 
     Rcpp::IntegerVector auto2_vals = Rcpp::sample(in, n_out, true); 
@@ -100,6 +90,7 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
         for (int j = 0; j < N_sim; j++) {
             int auto1 = auto1_vals[out_idx];
             int auto2 = auto2_vals[out_idx];
+
             Rcpp::List sim = simDDMCtrial(mu_c[i], b[i], A1[i], A2[i], tau1[i], 
                 tau2[i], dt[i], sigma[i], auto1, auto2);
             
@@ -144,8 +135,7 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
 Rcpp::List simDDMCactivation(int N, double mu_c, int b, int A1, int A2, 
     int tau1, int tau2, int auto1, int auto2) {
         /**
-         Simulate activation functions of DDMC 
-         Note: assuming a1 = a2 = 2
+         @brief Simulate activation functions of DDMC. Note: assuming a1 = a2 = 2
          @param N number of timepoints to be simulated [ms]
          @param mu_c drift rate of controlled process
          @param b boundary / threshold 
