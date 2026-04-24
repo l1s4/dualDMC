@@ -165,7 +165,7 @@ workflow = bf.BasicWorkflow(
     summary_network=bf.networks.SetTransformer(
         dropout=0.01070354852467715, 
         num_seeds=7, 
-        summary_dim=22,
+        summary_dim=24,
         embed_dims=(128, 128)
     ),
     inference_variables = ["muc", "A1", "A2", "tau1", "tau2", "mu_r", "sd_r", "b"],
