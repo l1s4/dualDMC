@@ -15,8 +15,9 @@ ui <- fluidPage(
     sliderInput("A2",            "A2 [amplitude auto2]",             0, 50, 20),
     sliderInput("N",             "N [number of timepoints]",         5, 2000, 500),
     sliderInput("dt",            "dt [step size]",                   0.1, 1, 1),
-    sliderInput("ndt",           "ndt [non-decision time [ms]]",     0, 700, 300),
-    sliderInput("nSim",          "nSim [number of simulations]",     500, 20000, 1000),
+    sliderInput("ndt_m",         "mean ndt [non-decision time]",     0, 700, 300),
+    sliderInput("ndt_sd",        "sd of ndt [non-decision time]",    0, 100, 30),
+    sliderInput("nSim",          "nSim [number of simulations]",     300, 10000, 1000),
     checkboxInput("YlimFixed",   "keep plot y-axis constant at [-50, +50]", value = FALSE),
     actionButton("SimTrial",     "Simulate trial") 
   ),
@@ -41,7 +42,8 @@ server <- function(input, output, session) {
     updateSliderInput(session, "dt")
     updateSliderInput(session, "b")
     updateSliderInput(session, "nSim")
-    updateSliderInput(session, "ndt")
+    updateSliderInput(session, "ndt_m")
+    updateSliderInput(session, "ndt_sd")
   })
   
   # simulate trial button 
@@ -129,20 +131,26 @@ server <- function(input, output, session) {
   
   # plot mean RTs
   output$MeanRTPlot <- renderPlot({
+    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
+    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
     Sim <- simDDMC(
       df = data.frame(
-        mu_c  = input$mu_c,
-        b     = input$b, 
-        A1    = input$A1,
-        A2    = input$A2, 
-        tau1  = input$tau1,
-        tau2  = input$tau2,
-        dt    = input$dt, 
-        sigma = input$sigma),
+        mu_c   = input$mu_c,
+        b      = input$b, 
+        A1     = input$A1,
+        A2     = input$A2, 
+        tau1   = input$tau1,
+        tau2   = input$tau2,
+        dt     = input$dt, 
+        sigma  = input$sigma,
+        ndt_m  = input$ndt_m, 
+        ndt_sd = input$ndt_sd, 
+        auto1  = auto1, 
+        auto2  = auto2),
       input$nSim)
     
     s_dfrt <- aggregate(rt ~ auto1 + auto2, FUN = mean, data = Sim[Sim$dec == 1, ])
-    s_dfrt$rt <- s_dfrt$rt + input$ndt    # add non decision time
+    s_dfrt$rt <- s_dfrt$rt
     
     # reorder factor levels and add labels
     s_dfrt$auto1 <- factor(s_dfrt$auto1, levels = c(1, -1), 
@@ -164,6 +172,8 @@ server <- function(input, output, session) {
   
   # plot mean ERs
   output$MeanERPlot <- renderPlot({
+    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
+    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
     Sim <- simDDMC(
       df = data.frame(
         mu_c  = input$mu_c,
@@ -173,7 +183,11 @@ server <- function(input, output, session) {
         tau1  = input$tau1,
         tau2  = input$tau2,
         dt    = input$dt, 
-        sigma = input$sigma),
+        sigma = input$sigma,
+        ndt_m  = input$ndt_m, 
+        ndt_sd = input$ndt_sd, 
+        auto1  = auto1, 
+        auto2  = auto2),
       input$nSim)
 
     Sim$error <- ifelse(Sim$dec == -1, 1, 0)

@@ -2,7 +2,7 @@
 
 // [[Rcpp::export]]
 Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2, 
-    double dt, double sigma, int auto1, int auto2) {
+    double dt, double sigma, double ndt_m, double ndt_sd, int auto1, int auto2) {
         /**
          @brief Simulate a single trial of dualDMC (DDMC). Note: assuming a1 = a2 = 2
          @param mu_c drift rate of controlled process
@@ -11,15 +11,17 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
          @param tau1, tau2 timepoint of max automatic activations 
          @param dt time discretization
          @param sigma diffusion constant of superimposed process
+         @param ndt mean non decision time
+         @param ndt_sd sd of non decision time
          @param auto1, auto2 type of automatic process (1 = congruent, -1 = incongruent)
          @return reaction time rt (ms) and decision of trial (1 = correct, -1 = incorrect)
          */
 
-        double t = dt; 
+        double t = dt;
         double X = 0.0; 
-        int dec = 0;                   // decision
+        int dec = 0;                    // decision
         double t_max = 7000;            // set max time for safety
-        std::vector<double> x_traj;    // to store trajectory
+        std::vector<double> x_traj;     // to store trajectory
         x_traj.reserve(t_max / dt); 
 
         const double e = exp(1.0);
@@ -44,6 +46,9 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
         else if (X >= b){dec = 1;}       // hit b first (i.e. correct response)
         else {dec = 0; Rcpp::Rcout << "No decision made!" << "\n";} // no decision
 
+        double ndt = R::rnorm(ndt_m, ndt_sd);
+        t += ndt;                   // add non decision time
+        
         return Rcpp::List::create(
             Rcpp::Named("rt") = t, 
             Rcpp::Named("dec") = dec,
@@ -61,7 +66,8 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
      @return reaction time rt (ms) and decision of trial (1 = correct, -1 = incorrect)
      */
 
-    Rcpp::NumericVector mu_c = df["mu_c"], dt = df["dt"], sigma = df["sigma"];
+    Rcpp::NumericVector mu_c = df["mu_c"], dt = df["dt"], sigma = df["sigma"], 
+                        ndt_m = df["ndt_m"], ndt_sd = df["ndt_sd"];
     Rcpp::IntegerVector b = df["b"], A1 = df["A1"], A2 = df["A2"], 
                         tau1 = df["tau1"], tau2 = df["tau2"]; 
 
@@ -70,7 +76,8 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
 
     // pre-allocate vectors for parameters
     Rcpp::NumericVector mu_c_out(n_out), b_out(n_out), dt_out(n_out), 
-                        sigma_out(n_out), rt_out(n_out); 
+                        sigma_out(n_out), rt_out(n_out), ndt_m_out(n_out), 
+                        ndt_sd_out(n_out);
     Rcpp::IntegerVector A1_out(n_out), A2_out(n_out), tau1_out(n_out), 
                         tau2_out(n_out), cong1_out(n_out), cong2_out(n_out), 
                         dec_out(n_out), set_id(n_out); 
@@ -92,7 +99,7 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
             int auto2 = auto2_vals[out_idx];
 
             Rcpp::List sim = simDDMCtrial(mu_c[i], b[i], A1[i], A2[i], tau1[i], 
-                tau2[i], dt[i], sigma[i], auto1, auto2);
+                tau2[i], dt[i], sigma[i], ndt_m[i], ndt_sd[i], auto1, auto2);
             
             mu_c_out[out_idx]   = mu_c[i]; 
             b_out[out_idx]      = b[i]; 
@@ -102,6 +109,8 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
             tau2_out[out_idx]   = tau2[i]; 
             dt_out[out_idx]     = dt[i]; 
             sigma_out[out_idx]  = sigma[i]; 
+            ndt_m_out[out_idx]  = ndt_m[i];
+            ndt_sd_out[out_idx] = ndt_sd[i];
             
             cong1_out[out_idx]  = auto1;
             cong2_out[out_idx]  = auto2;
@@ -122,6 +131,8 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
         Rcpp::Named("tau2")     = tau2_out,
         Rcpp::Named("dt")       = dt_out,
         Rcpp::Named("sigma")    = sigma_out, 
+        Rcpp::Named("ndt_m")    = ndt_m_out,
+        Rcpp::Named("ndt_sd")   = ndt_sd_out,
         Rcpp::Named("auto1")    = cong1_out,
         Rcpp::Named("auto2")    = cong2_out,
         Rcpp::Named("rt")       = rt_out,
