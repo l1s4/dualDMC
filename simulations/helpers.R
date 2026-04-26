@@ -19,7 +19,7 @@ plt_var_taus_rt <- function(data, corr_only) {
          xlab = "first automatic process", 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("tau1", "tau2")), 
-         auto.key = list(title = "second automatic process", space = "right", 
+         auto.key = list(title = "second automatic process", space = "top", 
                          cex = .7),
   ) |> print()
 }
@@ -45,8 +45,10 @@ plt_var_As_rt <- function(data, corr_only) {
          xlab = "first automatic process", 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("A1", "A2")), 
-         auto.key = list(title = "second automatic process", space = "right", 
-                         cex = .7),
+         auto.key = list(title = "second automatic process", space = "top",
+                         cex = .7), 
+#         auto.key = list(title = "second automatic process", corner = c(1, 1), 
+#                         x = 0.95, y = 0.1, cex = 0.7)
   ) |> print()
 }
 
@@ -70,7 +72,7 @@ plt_var_taus_er <- function(data) {
          xlab = "first automatic process", 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("tau1", "tau2")), 
-         auto.key = list(title = "second automatic process", space = "right", 
+         auto.key = list(title = "second automatic process", space = "top", 
                          cex = .7),
   ) |> print()
 }
@@ -83,19 +85,19 @@ plt_var_As_er <- function(data) {
   #   - corr_only: bool, if TRUE only correct trials are used
   # Output: lattice plot of mean ERs for combinations of A1 x A2
   data$error <- ifelse(data$dec == -1, 1, 0)
-  means <- aggregate(error ~ auto1 + auto2 + tau1 + tau2, FUN = mean, 
+  means <- aggregate(error ~ auto1 + auto2 + A1 + A2, FUN = mean, 
                      data = data)
   means$auto1 <- factor(means$auto1, levels = c(1, -1), 
                         labels = c("congruent", "incongruent"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
                         labels = c("congruent", "incongruent"))
   
-  xyplot(error ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, data = means, 
+  xyplot(error ~ auto1 | factor(A1) * factor(A2), groups = auto2, data = means, 
          type = c("p", "a"), main = "Mean ERs", ylim = c(0, 1), 
          xlab = "first automatic process", 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("A1", "A2")), 
-         auto.key = list(title = "second automatic process", space = "right", 
+         auto.key = list(title = "second automatic process", space = "top", 
                          cex = .7),
   ) |> print()
 }
