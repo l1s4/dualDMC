@@ -4,21 +4,21 @@ Rcpp::sourceCpp("../src/dualDMC.cpp")
 
 ui <- fluidPage(
   sidebarPanel(width = 2, style = "margin: 10px; overflow-y:scroll; max-height: 10%; font-size:14px",
-    selectInput("automProcess1", "Type of first automatic process", c("congruent", "incongruent")),
+    selectInput("automProcess1", "Type of first automatic process",  c("congruent", "incongruent")),
     selectInput("automProcess2", "Type of second automatic process", c("congruent", "incongruent")),
-    sliderInput("mu_c", "mu_c [drift rate controlled]", 0, 1, 0.5),
-    sliderInput("b", "b [decision boundary]",           0, 100, 50),
-    sliderInput("sigma", "sigma [SD Wiener process]",   0, 10, 4),
-    sliderInput("tau1", "tau1 [scale parameter auto1]", 0, 200, 20), 
-    sliderInput("tau2", "tau2 [scale parameter auto2]", 0, 200, 30),
-    sliderInput("A1", "A1 [amplitude auto1]",           0, 100, 20),
-    sliderInput("A2", "A2 [amplitude auto2]",           0, 100, 20),
-    sliderInput("N", "N [number of timepoints]",        5, 2000, 500),
-    sliderInput("dt", "dt [step size]",                 0.1, 1, 1),
-    sliderInput("ndt", "ndt [non-decision time [ms]]",  0, 700, 300),
-    sliderInput("nSim", "nSim [number of simulations]", 500, 20000, 1000),
-    checkboxInput("YlimFixed", "keep plot y-axis constant at [-50, +50]", value = FALSE),
-    actionButton("SimTrial", "Simulate trial") 
+    sliderInput("mu_c",          "mu_c [drift rate controlled]",     0, 1, 0.5),
+    sliderInput("b",             "b [decision boundary]",            0, 100, 50),
+    sliderInput("sigma",         "sigma [SD Wiener process]",        0, 10, 4),
+    sliderInput("tau1",          "tau1 [scale parameter auto1]",     0, 250, 20), 
+    sliderInput("tau2",          "tau2 [scale parameter auto2]",     0, 250, 30),
+    sliderInput("A1",            "A1 [amplitude auto1]",             0, 50, 20),
+    sliderInput("A2",            "A2 [amplitude auto2]",             0, 50, 20),
+    sliderInput("N",             "N [number of timepoints]",         5, 2000, 500),
+    sliderInput("dt",            "dt [step size]",                   0.1, 1, 1),
+    sliderInput("ndt",           "ndt [non-decision time [ms]]",     0, 700, 300),
+    sliderInput("nSim",          "nSim [number of simulations]",     500, 20000, 1000),
+    checkboxInput("YlimFixed",   "keep plot y-axis constant at [-50, +50]", value = FALSE),
+    actionButton("SimTrial",     "Simulate trial") 
   ),
   mainPanel(width = 5, wellPanel(plotOutput("AVplot"))),
   mainPanel(width = 5, wellPanel(plotOutput("XPlot"))), 
@@ -33,18 +33,18 @@ server <- function(input, output, session) {
   # change of parameter values
   observeEvent(input$change, {
     updateSliderInput(session, "N")
-    updateSliderInput(session, "mu_c", max = N)
-    updateSliderInput(session, "tau1", max = N)
-    updateSliderInput(session, "tau2", max = N)
-    updateSliderInput(session, "A1", max = N)
-    updateSliderInput(session, "A2", max = N)
-    updateSliderInput(session, "dt", max = N)
-    updateSliderInput(session, "b", max = N)
+    updateSliderInput(session, "mu_c")
+    updateSliderInput(session, "tau1")
+    updateSliderInput(session, "tau2")
+    updateSliderInput(session, "A1")
+    updateSliderInput(session, "A2")
+    updateSliderInput(session, "dt")
+    updateSliderInput(session, "b")
     updateSliderInput(session, "nSim")
     updateSliderInput(session, "ndt")
   })
   
-  # simulate Trial button 
+  # simulate trial button 
   observeEvent(input$SimTrial, {
     auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
     auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
@@ -66,6 +66,7 @@ server <- function(input, output, session) {
     rv$ap1[[trial_id]] <- M$auto1
     rv$ap2[[trial_id]] <- M$auto2
   })
+  
   # plot activation functions
   output$AVplot <- renderPlot({
     M <- simDDMCactivation(
@@ -86,32 +87,30 @@ server <- function(input, output, session) {
     cross_pb <- suppressWarnings(min(which(M$superimposed > input$b)))
     cross_mb <- suppressWarnings(min(which(M$superimposed < -input$b)))
 
-    tr_len <- input$N - 1 # trim vector to avoid ugly plot
-    plot(M$cont_traj[1:tr_len],
+    plot(M$cont_traj[1:input$N],
       type = "n", ylim = c(ymin, ymax),
-      ylab = "Mean Activation", xlab = "t"
+      ylab = "Mean Activation", xlab = "t [ms]"
     )
     abline(h = 0, lty = 3)
     abline(h = c(-input$b, input$b), lty = 2)
-    abline(v = ifelse(cross_pb < cross_mb, cross_pb, cross_mb))
-    lines(M$cont_traj[1:tr_len], col = "black")
-    lines(M$auto1_traj[1:tr_len], col = "green")
-    lines(M$auto2_traj[1:tr_len], col = "blue")
-    lines(M$super_traj[1:tr_len], col = "red")
+    lines(M$cont_traj[1:input$N], col = "black")
+    lines(M$auto1_traj[1:input$N], col = "green")
+    lines(M$auto2_traj[1:input$N], col = "blue")
+    lines(M$super_traj[1:input$N], col = "red")
     legend("bottomright",
       col = c("black", "green", "blue", "red"), lty = 1,
       legend = c("controlled", "automatic 1", "automatic 2", "superimposed")
     )
   })
-
+  
+  # plot simulated trials
   output$XPlot <- renderPlot({
     ymin <- if (input$YlimFixed) -50 else -input$b - 20
     ymax <- if (input$YlimFixed) +50 else input$b + 20
 
-    plot(isolate(rv[['trial_1']]), type = "n", ylab = "X(t)", xlab = "t", 
+    plot(isolate(rv[['trial_1']]), type = "n", ylab = "X(t)", xlab = "t [ms]", 
          ylim = c(ymin, ymax), xlim = c(0, input$N)) 
-    abline(h = input$b, col = "black", lty = 2)
-    abline(h = -input$b, col = "black", lty = 2)
+    abline(h = c(-input$b, input$b), col = "black", lty = 2)
 
 
     for (trial_id in names(rv$trials)) {
@@ -128,6 +127,7 @@ server <- function(input, output, session) {
     }
   })
   
+  # plot mean RTs
   output$MeanRTPlot <- renderPlot({
     Sim <- simDDMC(
       df = data.frame(
@@ -161,7 +161,8 @@ server <- function(input, output, session) {
       main = "mean RT [correct trials] per condition"
     )
   })
-
+  
+  # plot mean ERs
   output$MeanERPlot <- renderPlot({
     Sim <- simDDMC(
       df = data.frame(
