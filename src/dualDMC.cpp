@@ -149,22 +149,20 @@ Rcpp::List simDDMCactivation(int N, double mu_c, int b, int A1, int A2,
         double X = 0.0; 
         std::vector<double> auto1_traj;         // first automatic process
         std::vector<double> auto2_traj;         // second automatic process
-
-        std::vector<double> cont_traj(N);       // controlled process
-        for (size_t i = 0; i < cont_traj.size(); i++) {
-            cont_traj[i] = (i + 1) * mu_c;
-        }
+        std::vector<double> cont_traj;          // controlled process
         std::vector<double> super_traj;
         
         for (double t = 0; t < N; t++) {
             // activation of automatic processes
             double mu_a1 = auto1 * A1 * exp(-t / tau1) * ((t * exp(1)) / tau1); 
             double mu_a2 = auto2 * A2 * exp(-t / tau2) * ((t * exp(1)) / tau2); 
+            double muc = t * mu_c;
             // superimposed activation
-            double mu_t = mu_c + mu_a1 + mu_a2;
+            double mu_t = muc + mu_a1 + mu_a2;
 
             auto1_traj.push_back(mu_a1); 
             auto2_traj.push_back(mu_a2); 
+            cont_traj.push_back(muc);
             super_traj.push_back(mu_t); 
         }
 
@@ -174,4 +172,4 @@ Rcpp::List simDDMCactivation(int N, double mu_c, int b, int A1, int A2,
             Rcpp::Named("auto2_traj") = auto2_traj, 
             Rcpp::Named("super_traj") = super_traj
         );
-    }; 
+}; 

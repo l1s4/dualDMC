@@ -66,7 +66,7 @@ server <- function(input, output, session) {
     rv$ap1[[trial_id]] <- M$auto1
     rv$ap2[[trial_id]] <- M$auto2
   })
-
+  # plot activation functions
   output$AVplot <- renderPlot({
     M <- simDDMCactivation(
       N     = input$N, 
