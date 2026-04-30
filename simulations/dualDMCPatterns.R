@@ -1,6 +1,8 @@
 library(lattice)
 library(ggplot2)
 library(dplyr)
+library(purrr)
+library(tidyr)
 library(microbenchmark)
 library(Rcpp)
 source('helpers.R')
@@ -97,14 +99,12 @@ df_taus_eq <- mk_congruency(df_taus_eq)   # add congruency column
 df_taus_lst <- split(df_taus_eq, df_taus_eq$tau1)
 
 # Mean RTs
-#TODO: add info about other parameters somewhere in the plot
 pdf("out/plots/RT_plt_vary_taus.pdf")
 lapply(df_As_lst, plt_var_taus_rt, corr_only = T)   # plot for every level of As
 dev.off()
 pdf("out/plots/RT_plt_vary_As.pdf")
 lapply(df_taus_lst, plt_var_As_rt, corr_only = T)   # plot for every level of taus
 dev.off()
-
 
 # Mean ERs
 pdf("out/plots/ER_plt_vary_taus.pdf")
@@ -114,15 +114,31 @@ pdf("out/plots/ER_plt_vary_As.pdf")
 lapply(df_taus_lst, plt_var_As_er)
 dev.off()
 
+# CAFs
+pdf("out/plots/CAF_plt_vary_taus.pdf")
+lapply(df_As_lst, plt_nxn_cafs_As, n_bins = 4)
+dev.off()
+pdf("out/plots/CAF_plt_vary_As.pdf")
+lapply(df_taus_lst, plt_nxn_cafs_taus, n_bins = 4)
+dev.off()
+
 # CDFs
-#TODO: correct trials only? 
-lapply(df_As_lst, plt_cdfs)
-lapply(df_taus_lst, plt_cdfs)
+pdf("out/plots/CDF_plt_vary_taus.pdf")
+lapply(df_As_lst, plt_cdfs_var_taus)
+dev.off()
+pdf("out/plots/CDF_plt_vary_As.pdf")
+lapply(df_taus_lst, plt_cdfs_var_As)
+dev.off()
 
+# Delta plots
+pdf("out/plots/delta_plt_vary_taus.pdf")
+lapply(df_taus_lst, plt_nxn_delta_taus)
+dev.off()
+pdf("out/plots/delta_plt_vary_As.pdf")
+lapply(df_As_lst, plt_nxn_delta_As)
+dev.off()
 
-# Delta plot
-#TODO: correct trials only? 
-lapply(df_As_lst, plt_delta, 
-       cond1 = "congruent_congruent", cond2 = "congruent_incongruent")
-lapply(df_taus_lst, plt_delta, 
-       cond1 = "congruent_congruent", cond2 = "congruent_incongruent")
+## single delta plot
+data2 <- data[data$A1 == 10 & data$A2 == 10, ]
+plt_delta(data2, "incongruent_incongruent", "congruent_incongruent", 
+          "incongruent_congruent", "congruent_congruent")
