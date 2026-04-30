@@ -17,9 +17,5 @@ Note: $a_1 = a_2 = 2$
 
 Code used for specifying the experiment, the priors and the simulation settings is based on "Amortized Bayesian Workflow for Modeling Congruency Effects Using the Diffusion Model for Conflict Tasks." Schaefer, S.B., Radev, S.T., Göttmann, J. et al. Comput Brain Behav (2026). https://doi.org/10.1007/s42113-026-00266-y \
 https://github.com/simschaefer/amortized-dmc \
-Summary dimensions were increased to 24 \
-Epochs were increased to 250 \
-One more automatic process was added \
-$t_{max}$ was increased to 7000ms to account for high RTs in double conflict tasks
 
 BayesFlow models were trained using the computational resource bwUniCluster funded by the Ministry of Science, Research and the Arts Baden-Württemberg and the Universities of the State of Baden-Württemberg, Germany, within the framework program bwHPC.
