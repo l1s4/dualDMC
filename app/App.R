@@ -59,8 +59,11 @@ server <- function(input, output, session) {
       tau2  = input$tau2,
       dt    = input$dt, 
       sigma = input$sigma,
+      ndt_m = input$ndt_m, 
+      ndt_sd= input$ndt_sd,
       auto1 = auto1,
       auto2 = auto2
+      
     )
     
     trial_id <- paste0("trial_", length(rv$trials) + 1)
