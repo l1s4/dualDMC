@@ -1,17 +1,15 @@
-# note: this script is based on https://github.com/simschaefer/amortized-dmc
+# note: script is based on https://github.com/simschaefer/amortized-dmc
 # note: a1 = a2 = 2
 
 import os
 import math
 import numpy as np  
-import numba as nb
-import seaborn as sns
 import pandas as pd
 #import keras
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy.stats import truncnorm
-if "KERAS_BACKEND" not in os.environ:                # ensure the backend is set
+if "KERAS_BACKEND" not in os.environ:
     os.environ["KERAS_BACKEND"] = "torch"
 
 import bayesflow as bf
@@ -177,10 +175,12 @@ workflow = bf.BasicWorkflow(
 #)
 
 # Fit online
+val_data = simulator.sample(200)
 history = workflow.fit_online(
     epochs=200,
     num_batches_per_epoch=250,
-    batch_size=64
+    batch_size=64, 
+    val_data=val_data
 )
 
 
@@ -189,7 +189,7 @@ f = bf.diagnostics.plots.loss(history = history)
 plt.savefig("loss.pdf")
 
 # Plot default diagnostics
-val_data = simulator.sample(200)
-figures = workflow.plot_default_diagnostics(test_data=val_data)
+test_data = simulator.sample(200)
+figures = workflow.plot_default_diagnostics(test_data=test_data)
 for k,i in figures.items():
     figures[k].savefig(k + '_posttraining.pdf')
