@@ -16,21 +16,22 @@ import bayesflow as bf
 
 
 # Priors
-def ddmc_prior(): 
-    lower = 0
-    upper = np.inf
+def ddmc_prior(rng = None): 
+    if rng is None:
+        rng = np.random.default_rng()
+    
+    mu_r    = truncnorm.rvs((0 - 400) / 30, (np.inf - 400) / 30, 400, 30, random_state = rng)
+    sd_r    = truncnorm.rvs((0 - 30) / 10, (np.inf - 30) / 10, 30, 10, random_state = rng)
+    b       = truncnorm.rvs((0 - 80) / 20, (np.inf - 80) / 20, 80, 20, random_state = rng)
+    muc     = rng.beta(2, 2)
+    A1      = truncnorm.rvs((0 - 20) / 8, (np.inf - 20) / 8, 20, 8, random_state = rng)
+    A2      = truncnorm.rvs((0 - 20) / 8, (np.inf - 20) / 8, 20, 8, random_state = rng)
+    tau1    = rng.uniform(20, 180)
+    tau2    = rng.uniform(20, 180)
+    
 
-    means = np.array([360, 35, 60, 0.6, 20, 20, 120, 120])
-    sds = np.array([25, 8, 13, 0.15, 8, 8, 40, 40])
-
-    a = (lower - means) / sds
-    b = (upper - means) / sds
-
-    priors = truncnorm.rvs(a, b, loc=means, scale=sds)
-
-    return dict(mu_r=priors[0], sd_r=priors[1], b=priors[2], muc=priors[3], 
-                A1=priors[4], A2=priors[5], tau1=priors[6], tau2=priors[7])
-
+    return dict(mu_r=mu_r, sd_r=sd_r, b=b, muc=muc, A1=A1, A2=A2, tau1=tau1, 
+                tau2=tau2)
 
 # Simulate DDMC trials
 def ddmc_trial(muc, A1, A2, tau1, tau2, b, ndts, noise, t, sigma = 4.0, dt = 1): 
@@ -77,13 +78,14 @@ def ddmc_trial(muc, A1, A2, tau1, tau2, b, ndts, noise, t, sigma = 4.0, dt = 1):
 
 # Run DDMC experiment (4 conditions: c-c, c-i, i-c, i-i)
 def ddmc_experiment(num_obs, muc, A1, A2, tau1, tau2, b, mu_r, sd_r): 
-    max_time = 5000
+    max_time = 1500
     dt = 1
 
     # precompute time vector and noise
-    t = np.linspace(start=dt, stop=max_time, num=int(max_time/dt))
+    t = np.arange(start=dt, stop=max_time+dt, step=dt)
     noise = np.random.normal(size = (num_obs, len(t)))
-    ndts = np.random.normal(size = num_obs, loc=mu_r, scale=sd_r)
+#    ndts = np.random.normal(size = num_obs, loc=mu_r, scale=sd_r)
+    ndts = truncnorm.rvs((0 - mu_r) / sd_r, (np.inf - mu_r) / sd_r, mu_r, sd_r, size=num_obs)
 
     out = np.zeros((num_obs, 2))        # to store rt and resp
 
@@ -93,19 +95,23 @@ def ddmc_experiment(num_obs, muc, A1, A2, tau1, tau2, b, mu_r, sd_r):
 
     # simulate CONG-CONG trials (A1, A2)
     out[:quarter] = ddmc_trial(
-        muc=muc, A1=A1, A2=A2, tau1=tau1, tau2=tau2, b=b, t=t, ndts=ndts[:quarter], noise=noise[:quarter]
+        muc=muc, A1=A1, A2=A2, tau1=tau1, tau2=tau2, b=b, t=t, 
+        ndts=ndts[:quarter], noise=noise[:quarter]
     )
     # simulate CONG-INCONG trials (A1, -A2)
     out[quarter:quarter*2] = ddmc_trial(
-        muc=muc, A1=A1, A2=-A2, tau1=tau1, tau2=tau2, b=b, t=t, ndts=ndts[quarter:quarter*2], noise=noise[quarter:quarter*2]
+        muc=muc, A1=A1, A2=-A2, tau1=tau1, tau2=tau2, b=b, t=t, 
+        ndts=ndts[quarter:quarter*2], noise=noise[quarter:quarter*2]
     )
     # simulate INCONG-CONG trials (-A1, A2)
     out[quarter*2:quarter*3] = ddmc_trial(
-        muc=muc, A1=-A1, A2=A2, tau1=tau1, tau2=tau2, b=b, t=t, ndts=ndts[quarter*2:quarter*3], noise=noise[quarter*2:quarter*3]
+        muc=muc, A1=-A1, A2=A2, tau1=tau1, tau2=tau2, b=b, t=t, 
+        ndts=ndts[quarter*2:quarter*3], noise=noise[quarter*2:quarter*3]
     )
     # simulate INCONG-INCONG trials (-A1, -A2)
     out[quarter*3:] = ddmc_trial(
-        muc=muc, A1=-A1, A2=-A2, tau1=tau1, tau2=tau2, b=b, t=t, ndts=ndts[quarter*3:], noise=noise[quarter*3:]
+        muc=muc, A1=-A1, A2=-A2, tau1=tau1, tau2=tau2, b=b, t=t, 
+        ndts=ndts[quarter*3:], noise=noise[quarter*3:]
     )
     
     # contaminate
@@ -119,9 +125,11 @@ def ddmc_experiment(num_obs, muc, A1, A2, tau1, tau2, b, mu_r, sd_r):
     out[:, 1] = (1-replace)*out[:, 1] + replace*cont_resp
 
 
-    return dict(rt = out[:, 0], resp = out[:, 1], conditions = conditions, num_obs = num_obs)
+    return dict(rt = out[:, 0], resp = out[:, 1], conditions = conditions, 
+                num_obs = num_obs)
 
-#mdmc_experiment(num_obs = 50, muc = 0.5, A1 = 60, A2 = 60, tau1 = 10, tau2 = 170, b = 50, mu_r = 300, sd_r = 36)
+#ddmc_experiment(num_obs = 50, muc = 0.5, A1 = 60, A2 = 60, tau1 = 10, 
+#                tau2 = 170, b = 50, mu_r = 300, sd_r = 36)
 
 
 def meta(batch_size, num_obs = None): 
@@ -144,8 +152,8 @@ adapter = (bf.Adapter()
     .concatenate(["rt", "resp", "conditions"], into = "summary_variables")
     .standardize(
         include="inference_variables", 
-        mean=[0.6, 20, 20, 120, 120, 360, 35, 60], 
-        std=[0.15, 8, 8, 40, 40, 360, 35, 60]
+        mean=[0.5, 20, 20, 100, 100, 400, 30, 80],
+        std=[0.22, 8, 8, 46, 46, 30, 10, 20]
     )
     .rename("num_obs", "inference_conditions")
 )
@@ -168,7 +176,7 @@ workflow = bf.BasicWorkflow(
     inference_conditions = ["num_obs"], 
     summary_variables = ["rt", "resp", "conditions"],
     checkpoint_filepath = Path(os.getcwd()).resolve(),  # save in cwd
-    checkpoint_name = "DDMC_5000"                 # file name
+    checkpoint_name = "DDMC_1500RU"                 # file name
 )
 
 
@@ -187,7 +195,7 @@ workflow = bf.BasicWorkflow(
 # Fit online
 val_data = simulator.sample(200)
 history = workflow.fit_online(
-    epochs=200,
+    epochs=250,
     num_batches_per_epoch=250,
     batch_size=64, 
     val_data=val_data
@@ -199,7 +207,6 @@ f = bf.diagnostics.plots.loss(history = history)
 plt.savefig("loss.pdf")
 
 # Plot default diagnostics
-test_data = simulator.sample(200)
-figures = workflow.plot_default_diagnostics(test_data=test_data)
+figures = workflow.plot_default_diagnostics(test_data=val_data)
 for k,i in figures.items():
     figures[k].savefig(k + '_posttraining.pdf')

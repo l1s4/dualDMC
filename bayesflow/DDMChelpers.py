@@ -220,7 +220,7 @@ def pred_samples_conditions(data, approximator, n_resims = 200, num_obs = 200):
         )
 
         # save samples
-        samples_flat = {k: v.flatten() for k, v in samples.items() if val[j] > 0}
+        samples_flat = {k: v.flatten() for k, v in samples.items()}
         cond_data_samples = pd.DataFrame(samples_flat)
         cond_data_samples["CI"] = cond
         cond_samples_list.append(cond_data_samples)
