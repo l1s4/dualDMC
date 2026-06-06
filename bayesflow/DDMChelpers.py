@@ -258,23 +258,28 @@ def plt_subjs_emp (emp_data, pred_data):
 
     participants = emp_data["subject"].unique()
 
-    f, axarr = plt.subplots(3, 8, figsize=(12, 4), sharex=True, sharey=True)
+    f, axarr = plt.subplots(3, 8, figsize=(24, 8), sharex=True, sharey=True)
     for idx, subj in enumerate(participants): 
         ax = axarr.flat[idx]
+        ax.set_xlim(0, 2.5)
         sns.kdeplot(
             pred_data[pred_data["subject"] == subj]["rt"], 
             ax=ax, 
-            color="blue"
+            color="blue",
+            label="predicted"
         )
         sns.kdeplot(
             emp_data[emp_data["subject"] == subj]["rt"], 
             ax=ax, 
-            color="orange"
+            color="orange",
+            label="empirical"
         )
         sns.despine(ax=ax)
         ax.set_title(f"Subject {subj}")
         ax.set_xlabel("")
         ax.set_ylabel("")
+        ax.legend()
+
     f.tight_layout(rect=[0, 0, 1, 1])
 
 
@@ -291,15 +296,50 @@ def plt_conds_emp (emp_data, pred_data):
         sns.kdeplot(
             pred_data[pred_data["CI"] == cond]["rt"], 
             ax=ax, 
-            color="blue"
+            color="blue",
+            label="predicted"
         )
         sns.kdeplot(
             emp_data[emp_data["CI"] == cond]["rt"], 
             ax=ax, 
-            color="orange"
+            color="orange",
+            label="empirical"
         )
         sns.despine(ax=ax)
         ax.set_title(f"Condition {cond}")
         ax.set_xlabel("")
         ax.set_ylabel("")
+        ax.legend()
+
     f.tight_layout(rect=[0, 0, 1, 1])
+
+
+def get_samples(data): 
+    inference_dict = {
+        key: np.array([data[key].values.reshape(len(data), 1)]) 
+        for key in ['rt', 'resp', 'conditions']
+        }
+    inference_dict["num_obs"] = np.sum(inference_dict["rt"], axis=1)
+    print({key: value.shape for key, value in inference_dict.items()}) # shapes
+
+    samples = approximator.sample(conditions=inference_dict, num_samples=200)
+    return samples
+
+
+def plot_samples(samples):
+    samples_flat = {k: v.flatten() for k, v in samples.items()}
+
+    params = list(samples_flat.keys())
+
+
+    f, axarr = plt.subplots(2, 4, figsize=(12, 4))
+    for i in range(len(params)):
+        ax = axarr.flat[i]
+        sns.kdeplot(samples_flat[params[i]], ax=ax)
+        ax.set_title(f"{params[i]}")
+        ax.set_xlabel(params[i])
+        ax.set_ylabel("Density")
+        ax.axvline(x=np.mean(samples_flat[params[i]]), color='red')
+
+    plt.tight_layout()
+    plt.show()
