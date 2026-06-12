@@ -8,47 +8,7 @@ library(Rcpp)
 source('helpers.R')
 Rcpp::sourceCpp('../src/dualDMC.cpp')
 
-# just for testing #############################################################
-source('../src/dualDMC.R')
-result_cpp <- simDDMCtrial(0.5, 50, 30, 10, 30, 150, 0.01, 0.0, 300.0, 0.0, -1, 1)
-print(result_cpp$rt)
-print(result_cpp$dec)
-plot(result_cpp$XTraj)
 
-result_R <- MDMC_T(1500, list(sigma = 0.00, dt = 0.01, mu_c = 0.5, 
-b = 50, tau1 = 30, tau2 = 150, A1 = 30, A2 = 10, a1 = 2, a2 = 2, 
-automatic1 = "incongruent", automatic2 = "congruent"))
-print(result_R$rt)
-print(result_R$dec)
-
-# varying parameters
-tau1_vals <- seq(20, 100, 40)
-tau2_vals <- seq(20, 100, 40)
-A1_vals <- seq(10, 25, 10)
-A2_vals <- seq(10, 25, 10)
-
-param_grid <- expand.grid(tau1 = tau1_vals, tau2 = tau2_vals, 
-                          A1 = A1_vals, A2 = A2_vals)
-
-# constant parameters
-param_grid$a1    <- 2
-param_grid$a2    <- 2
-param_grid$b     <- 60
-param_grid$sigma <- 0
-param_grid$dt    <- 0.01
-param_grid$mu_c  <- 0.6
-param_grid$ndt_m <- 000
-param_grid$ndt_sd <- 00
-
-res <- simDDMC(param_grid, 10)
-resR <- MDMC_Sim(10, 1000, param_grid)
-df_all <- bind_rows(resR, .id = "param_set")
-df_all$param_set <- as.integer(df_all$param_set)
-df_all$congruency <- paste(df_all$first_pr, df_all$second_pr, sep = "_")
-
-
-
-# DDMC #########################################################################
 # varying parameters
 #tau1_vals <- seq(20, 200, 40)
 #tau2_vals <- seq(20, 200, 40)
@@ -79,9 +39,11 @@ N_sim <- 1000		# number of simulations per parameter set
 datDDMC <- simDDMC(param_grid, N_sim)
 
 
-# save data
-write.csv(datDDMC, "out/data/datDDMC.csv")
-datDDMC <- read.csv("out/data/datDDMC.csv")
+save(datDDMC, file = "out/data/datDDMC.RData")      # save data
+load("out/data/datDDMC.RData")
+#write.csv(datDDMC, "out/data/datDDMC.csv")
+#datDDMC <- read.csv("out/data/datDDMC.csv")
+
 
 
 
@@ -138,7 +100,10 @@ pdf("out/plots/delta_plt_vary_As.pdf")
 lapply(df_As_lst, plt_nxn_delta_As)
 dev.off()
 
-## single delta plot
-data2 <- data[data$A1 == 10 & data$A2 == 10, ]
-plt_delta(data2, "incongruent_incongruent", "congruent_incongruent", 
-          "incongruent_congruent", "congruent_congruent")
+# Plot densities
+pdf("out/plots/dens_plt_vary_As.pdf")
+lapply(df_taus_lst, rt_denss_tau)
+dev.off()
+pdf("out/plots/dens_plt_vary_taus.pdf")
+lapply(df_As_lst, rt_denss_A)
+dev.off()

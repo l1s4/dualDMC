@@ -325,3 +325,24 @@ plt_nxn_delta_As <- function(df) {
     strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
   )# |> print()
 }
+
+
+rt_denss_A <- function(data) {
+  densityplot(~rt | factor(tau1) * factor(tau2), groups = factor(congruency), 
+              plot.points = FALSE, data = data, main = "Densities", xlab = "RT", 
+              auto.key = list(title = "condition", cex = 0.7, columns = 2, 
+                              space = "top"), 
+              strip = strip.custom(strip.names = TRUE, 
+                                   var.name = c("tau1", "tau2"))
+  )
+}
+
+rt_denss_tau <- function(data) {
+  densityplot(~rt | factor(A1) * factor(A2), groups = factor(congruency), 
+              plot.points = FALSE, data = data, main = "Densities", xlab = "RT", 
+              auto.key = list(title = "condition", cex = 0.7, columns = 2, 
+                              space = "top"), 
+              strip = strip.custom(strip.names = TRUE, 
+                                   var.name = c("A1", "A2"))
+  )
+}
