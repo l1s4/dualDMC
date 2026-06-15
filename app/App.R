@@ -24,7 +24,9 @@ ui <- fluidPage(
   mainPanel(width = 5, wellPanel(plotOutput("AVplot"))),
   mainPanel(width = 5, wellPanel(plotOutput("XPlot"))), 
   mainPanel(width = 5, wellPanel(plotOutput("MeanRTPlot"))),
-  mainPanel(width = 5, wellPanel(plotOutput("MeanERPlot")))
+  mainPanel(width = 5, wellPanel(plotOutput("MeanERPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("DeltaPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("DensityPlot")))
 )
 
 server <- function(input, output, session) {
@@ -208,6 +210,90 @@ server <- function(input, output, session) {
       xlab = "first dimension", trace.label = "second dimension", 
       legend = T, ylab = "mean ER", main = "mean ER per condition"
     )
+  })
+  
+  output$DeltaPlot <- renderPlot({
+    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
+    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
+    Sim <- simDDMC(
+      df = data.frame(
+        mu_c  = input$mu_c,
+        b     = input$b, 
+        A1    = input$A1,
+        A2    = input$A2, 
+        tau1  = input$tau1,
+        tau2  = input$tau2,
+        dt    = input$dt, 
+        sigma = input$sigma,
+        ndt_m  = input$ndt_m, 
+        ndt_sd = input$ndt_sd, 
+        auto1  = auto1, 
+        auto2  = auto2),
+      input$nSim)
+    
+    d_cc <- Sim[Sim$auto1 == 1 & Sim$auto2 == 1, ]
+    d_ci <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
+    d_ic <- Sim[Sim$auto1 == -1 & Sim$auto2 == 1, ]
+    d_ii <- Sim[Sim$auto1 == -1 & Sim$auto2 == -1, ]
+    
+    probs <- seq(0.1, 0.9, by = 0.1)
+    
+    q1 <- quantile(d_cc$rt, probs)
+    q2 <- quantile(d_ci$rt, probs)
+    q3 <- quantile(d_ic$rt, probs)
+    q4 <- quantile(d_ii$rt, probs)
+    
+    delta1 <- q4 - q1
+    delta2 <- q4 - q2
+    delta3 <- q4 - q3
+    mean_rts <- (q1+q2+q3+q4) / 4
+    
+    ymin <- min(delta1, delta2, delta3) - 20
+    ymax <- max(delta1, delta2, delta3) + 20
+    xmin <- min(mean_rts) - 25
+    xmax <- max(mean_rts) + 25 
+    
+    plot(mean_rts, delta1, type = "n", pch = 16, 
+         xlim = c(xmin, xmax), ylim = c(ymin, ymax), 
+         xlab = "Mean RT (ms)", ylab = "delta", main = "Delta Plot")
+    points(mean_rts, delta1, type = "b", col = "green")
+    points(mean_rts, delta2, type = "b", col = "blue")
+    points(mean_rts, delta3, type = "b", col = "red")
+    legend("topright", legend = c("ii-cc", "ii-ci", "ii-ic"),
+           col = c("green", "blue", "red"), lty = 1)
+  })
+  
+  output$DensityPlot <- renderPlot({
+    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
+    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
+    Sim <- simDDMC(
+      df = data.frame(
+        mu_c  = input$mu_c,
+        b     = input$b, 
+        A1    = input$A1,
+        A2    = input$A2, 
+        tau1  = input$tau1,
+        tau2  = input$tau2,
+        dt    = input$dt, 
+        sigma = input$sigma,
+        ndt_m  = input$ndt_m, 
+        ndt_sd = input$ndt_sd, 
+        auto1  = auto1, 
+        auto2  = auto2),
+      input$nSim)
+    
+    d_cc <- Sim[Sim$auto1 == 1 & Sim$auto2 == 1, ]
+    d_ci <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
+    d_ic <- Sim[Sim$auto1 == -1 & Sim$auto2 == 1, ]
+    d_ii <- Sim[Sim$auto1 == -1 & Sim$auto2 == -1, ]
+    
+    plot(density(d_cc$rt), type = "n", main = "Density", xlab = "RT")
+    lines(density(d_cc$rt), col = "green")
+    lines(density(d_ci$rt), col = "blue")
+    lines(density(d_ic$rt), col = "orange")
+    lines(density(d_ii$rt), col = "red")
+    legend("topright", title = "Condition", legend = c("cc", "ci", "ic", "ii"), 
+           col = c("green", "blue", "orange", "red"), lty = 1)
   })
 }
 
