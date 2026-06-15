@@ -11,9 +11,9 @@ mk_congruency <- function(df) {
 # mean RT plots
 plt_var_taus_rt <- function(data, corr_only) {
   # Input: 
-  #   - data: dataframe containing columns auto1, auto2 (-1 incongruent, 1 congruent), 
+  #   - data: dataframe with columns auto1, auto2 (-1 incongruent, 1 congruent), 
   #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data aggregated across A1, A2 (i.e. A1 == A2 is expected in data)
+  #           data expected to be aggregated across A1, A2 (i.e. A1 == A2)
   #   - corr_only: bool, if TRUE only correct trials are used
   # Output: lattice plot of mean RTs for combinations of tau1 x tau2
   
@@ -24,22 +24,23 @@ plt_var_taus_rt <- function(data, corr_only) {
                         labels = c("congruent", "incongruent"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
                         labels = c("congruent", "incongruent"))
+  subtitle <- paste("for A1 = A2 =", data$A1[1])
   
   xyplot(rt ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, data = means, 
-         type = "b", main = "Mean RTs", sub = paste("As:", data$A1[1]), 
-         xlab = "first automatic process", 
+         type = "b", main = bquote(atop("Mean RTs", .(subtitle))),
+         xlab = "first automatic process", ylab = "RT", 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("tau1", "tau2")), 
          auto.key = list(title = "second automatic process", space = "top", 
                          cex = .7) 
-  ) # |> print()
+  )
 }
 
 plt_var_As_rt <- function(data, corr_only) {
   # Input: 
-  #   - data: dataframe containing columns auto1, auto2 (-1 incongruent, 1 congruent), 
+  #   - data: dataframe with columns auto1, auto2 (-1 incongruent, 1 congruent), 
   #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data aggregated across tau1, tau2 (i.e. tau1 == tau2 is expected in data)
+  #           data expected to be aggregated across tau1, tau2 (i.e. tau1 == tau2)
   #   - corr_only: bool, if TRUE only correct trials are used
   # Output: lattice plot of mean RTs for combinations of A1 x A2
   
@@ -51,15 +52,15 @@ plt_var_As_rt <- function(data, corr_only) {
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
                         labels = c("congruent", "incongruent"))
   
+  subtitle <- paste("for tau1 = tau2 = ", data$tau1[1])
   xyplot(rt ~ auto1 | factor(A1) * factor(A2), groups = auto2, data = means, 
-         type = "b", main = "Mean RTs", xlab = "first automatic process", 
+         type = "b", main = bquote(atop("Mean RTs", .(subtitle))),
+         xlab = "first automatic process", 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("A1", "A2")), 
          auto.key = list(title = "second automatic process", space = "top",
                          cex = .7), 
-#         auto.key = list(title = "second automatic process", corner = c(1, 1), 
-#                         x = 0.95, y = 0.1, cex = 0.7)
-  )# |> print()
+  )
 }
 
 # mean ER plots
@@ -67,9 +68,10 @@ plt_var_taus_er <- function(data) {
   # Input: 
   #   - data: dataframe containing columns auto1, auto2 (-1 incongruent, 1 congruent), 
   #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data aggregated across A1, A2 (i.e. A1 == A2 is expected in data)
+  #           data expected to be aggregated across A1, A2 (i.e. A1 == A2)
   #   - corr_only: bool, if TRUE only correct trials are used
   # Output: lattice plot of mean ERs for combinations of tau1 x tau2
+  
   data$error <- ifelse(data$dec == -1, 1, 0)
   means <- aggregate(error ~ auto1 + auto2 + tau1 + tau2, FUN = mean, 
                      data = data)
@@ -78,23 +80,26 @@ plt_var_taus_er <- function(data) {
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
                         labels = c("congruent", "incongruent"))
   
-  xyplot(error ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, data = means, 
-         type = "b", main = "Mean ERs", ylim = c(0, 1), 
+  subtitle <- paste("for A1 = A2 =", data$A1[1])
+  xyplot(error ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, 
+         data = means, ylim = c(0, 1), type = "b", 
+         main = bquote(atop("Mean ERs", .(subtitle))), 
          xlab = "first automatic process", 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("tau1", "tau2")), 
          auto.key = list(title = "second automatic process", space = "top", 
                          cex = .7),
-  ) #|> print()
+  )
 }
 
 plt_var_As_er <- function(data) {
   # Input: 
   #   - data: dataframe containing columns auto1, auto2 (-1 incongruent, 1 congruent), 
   #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data aggregated across tau1, tau2 (i.e. tau1 == tau2 is expected in data)
+  #           data expected to be aggregated across tau1, tau2 (i.e. tau1 == tau2)
   #   - corr_only: bool, if TRUE only correct trials are used
   # Output: lattice plot of mean ERs for combinations of A1 x A2
+  
   data$error <- ifelse(data$dec == -1, 1, 0)
   means <- aggregate(error ~ auto1 + auto2 + A1 + A2, FUN = mean, 
                      data = data)
@@ -102,117 +107,89 @@ plt_var_As_er <- function(data) {
                         labels = c("congruent", "incongruent"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
                         labels = c("congruent", "incongruent"))
+  subtitle <- paste("for tau1 = tau2 =", data$tau1[1])
   
-  xyplot(error ~ auto1 | factor(A1) * factor(A2), groups = auto2, data = means, 
-         type = "b", main = "Mean ERs", ylim = c(0, 1), 
-         xlab = "first automatic process", 
+    xyplot(error ~ auto1 | factor(A1) * factor(A2), groups = auto2, 
+           data = means, type = "b", xlab = "first automatic process", 
+           main = bquote(atop("Mean ERs", .(subtitle))), ylim = c(0, 1), 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("A1", "A2")), 
          auto.key = list(title = "second automatic process", space = "top", 
                          cex = .7),
-  ) #|> print()
+  )
 }
 
 
 
 # ECDF plots
 plt_cdfs_var_taus <- function(df) {
-  df_ecdf <- df %>%
-    group_by(tau1, tau2, congruency) %>%
-    arrange(rt, .by_group = TRUE) %>%
-    mutate(ecdf_y = (row_number() - 1) / (n() - 1)) %>%
-    ungroup()
-
-  xyplot(ecdf_y ~ rt | factor(tau1) + factor(tau2), data = df_ecdf,
-         groups = congruency, type = "l",
-         xlab = "RT", ylab = "ECDF", xlim = c(0, 1200), 
+  subtitle <- paste("for A1 = A2 =", df$A1[1])
+  ecdfplot(~rt | factor(tau1) + factor(tau2), groups = congruency, data = df, 
+         type = "l", xlim = c(0, 1000), xlab = "RT", ylab = "ECDF",  
+         main = bquote(atop("CDFs", .(subtitle))), 
          strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2")),
          auto.key = list(title = "condition", cex = 0.7, columns = 2)
-  ) #|> print()
+  )
 }
 
 plt_cdfs_var_As <- function(df) {
-  df_ecdf <- df %>%
-    group_by(A1, A2, congruency) %>%
-    arrange(rt, .by_group = TRUE) %>%
-    mutate(ecdf_y = (row_number() - 1) / (n() - 1)) %>%
-    ungroup()
-  
-  xyplot(ecdf_y ~ rt | factor(A1) + factor(A2), data = df_ecdf,
-         groups = congruency, type = "l",
-         xlab = "RT", ylab = "ECDF", xlim = c(0, 1200), 
-         strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2")),
-         auto.key = list(title = "condition", cex = 0.7, columns = 2)
-  ) #|> print()
+  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
+  ecdfplot(~ rt | factor(A1) + factor(A2), groups = congruency, data = df, 
+           type = "l", xlim = c(0, 1000), xlab = "RT", ylab = "ECDF",  
+           main = bquote(atop("CDFs", .(subtitle))), 
+           strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2")),
+           auto.key = list(title = "condition", cex = 0.7, columns = 2)
+  )
 }
 
 # CAF plots
-plt_nxn_cafs_As <- function(df, n_bins) {
+plt_cafs_var_As <- function(df, n_bins) {
   
   df$error <- ifelse(df$dec == 1, 0, 1)
   df$acc <- 1 - df$error
   
-  df$tau1 <- factor(df$tau1)
-  df$tau2 <- factor(df$tau2)
-  
-  df_lst <- split(df, list(df$tau1, df$tau2), drop = TRUE)
+  df_lst <- split(df, list(factor(df$tau1), factor(df$tau2)), drop = TRUE)
   
   binned_lst <- lapply(df_lst, function(x) {
-    x$rt_bin <- cut(
-      x$rt,
-      breaks = quantile(x$rt, probs = seq(0, 1, length.out = n_bins + 1)),
-      include.lowest = TRUE,
-      labels = FALSE
-    )
+    x$rt_bin <- cut(x$rt, breaks = n_bins, labels = FALSE)
     aggregate(acc ~ rt_bin + congruency, FUN = mean, data = x)
   })
   
   data <- bind_rows(binned_lst, .id = "list_name") %>%
     separate(list_name, into = c("tau1", "tau2"), sep = "\\.", convert = TRUE)
-  
-  xyplot(
-    acc ~ as.numeric(rt_bin) | factor(tau1) + factor(tau2), data = data, 
-    groups = congruency, type = "b", main = "CAFs", ylim = c(0, 1.1),
-    xlab = "RT bin", ylab = "Accuracy",
-    auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
-    strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
-  ) #|> print()
+
+  subtitle <- paste("for A1 = A2 =", df$A1[1])
+  xyplot(acc ~ as.numeric(rt_bin) | factor(tau1) + factor(tau2), groups = congruency, 
+         data = data, type = "b", ylim = c(0, 1.1), xlab = "RT bin", 
+         ylab = "Accuracy", main = bquote(atop("CAFs", .(subtitle))), 
+         auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
+         strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
+  )
 }
 
-plt_nxn_cafs_taus <- function(df, n_bins) {
+plt_cafs_var_taus <- function(df, n_bins) {
   
   df$error <- ifelse(df$dec == 1, 0, 1)
   df$acc <- 1 - df$error
   
-  df$tau1 <- factor(df$A1)
-  df$tau2 <- factor(df$A2)
-  
-  df_lst <- split(df, list(df$A1, df$A2), drop = TRUE)
+  df_lst <- split(df, list(factor(df$A1), factor(df$A2)), drop = TRUE)
   
   binned_lst <- lapply(df_lst, function(x) {
-    
-    x$rt_bin <- cut(
-      x$rt,
-      breaks = quantile(x$rt, probs = seq(0, 1, length.out = n_bins + 1)),
-      include.lowest = TRUE,
-      labels = FALSE
-    )
-    
+    x$rt_bin <- cut(x$rt, breaks = n_bins, labels = FALSE)
     aggregate(acc ~ rt_bin + congruency, FUN = mean, data = x)
   })
   
   data <- bind_rows(binned_lst, .id = "list_name") %>%
     separate(list_name, into = c("A1", "A2"), sep = "\\.", convert = TRUE)
   
-  xyplot(
-    acc ~ as.numeric(rt_bin) | factor(A1) + factor(A2),
-    data = data, groups = congruency, type = "b", main = "CAFs", 
-    xlab = "RT bin", ylab = "Accuracy",
-    auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
-    strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2")),
-    #col = c("green", "blue", "purple", "red"),
-    ylim = c(0, 1.1)
-  )# |> print()
+  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
+  xyplot(acc ~ as.numeric(rt_bin) | factor(A1) + factor(A2), 
+         groups = congruency, data = data, type = "b", xlab = "RT bin", 
+         ylab = "Accuracy", ylim = c(0, 1.1), 
+         main = bquote(atop("CAFs", .(subtitle))), 
+         auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
+         strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2")),
+  )
 }
 
 
@@ -248,10 +225,10 @@ plt_delta <- function(df, cond1, cond2, cond3, cond4) {
 }
 
 
-plt_nxn_delta_taus <- function(df) {
+plt_delta_vary_As <- function(df) {
   
-  df$tau1 <- factor(df$A1)
-  df$tau2 <- factor(df$A2)
+  df$tau1 <- factor(df$tau1)
+  df$tau2 <- factor(df$tau2)
   
   probs = seq(0.1, 0.9, by = 0.1)
   
@@ -275,19 +252,19 @@ plt_nxn_delta_taus <- function(df) {
   data <- bind_rows(delta_lst, .id = "list_name") |>
     separate(list_name, into = c("A1", "A2"), sep = "\\.", convert = TRUE)
   
-  # drop reference category
-  data <- data[data$cond != "incongruent_incongruent", ]
-  
-  xyplot(
-    delta ~ mean_rt | factor(A1) + factor(A2), groups = cond, data = data,
-    type = "l", main = "Delta Plots", xlim = c(100, 700), ylim = c(-50, 200), 
-    xlab = "Mean RT (ms)", ylab = "Delta (ms)",
-    auto.key = list(title = "condition", cex = 0.7, columns = 2, space = "top"),
-    strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2"))
-  )# |> print()
+  data <- data[data$cond != "incongruent_incongruent", ] # drop reference cat
+  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
+  xyplot(delta ~ mean_rt | factor(A1) + factor(A2), groups = cond, data = data,
+         type = "l", xlim = c(250, 550), ylim = c(-50, 200), 
+         xlab = "Mean RT (ms)", ylab = "Delta (ms)", 
+         main = bquote(atop("Delta Plots", .(subtitle))), 
+         auto.key = list(title = "condition", cex = 0.7, columns = 2, 
+                         space = "top"),
+         strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2"))
+  )
 }
 
-plt_nxn_delta_As <- function(df) {
+plt_delta_vary_taus <- function(df) {
   
   df$tau1 <- factor(df$tau1)
   df$tau2 <- factor(df$tau2)
@@ -314,22 +291,24 @@ plt_nxn_delta_As <- function(df) {
   data <- bind_rows(delta_lst, .id = "list_name") |>
     separate(list_name, into = c("tau1", "tau2"), sep = "\\.", convert = TRUE)
   
-  # drop reference category
-  data <- data[data$cond != "incongruent_incongruent", ]
-  
-  xyplot(
-    delta ~ mean_rt | factor(tau1) + factor(tau2), groups = cond, data = data,
-    type = "l", main = "Delta Plots", xlim = c(100, 700), ylim = c(-50, 200), 
-    xlab = "Mean RT (ms)", ylab = "Delta (ms)",
-    auto.key = list(title = "condition", cex = 0.7, columns = 2, space = "top"),
-    strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
-  )# |> print()
+  data <- data[data$cond != "incongruent_incongruent", ] # drop reference cat
+  subtitle <- paste("for A1 = A2 =", df$A1[1])
+  xyplot(delta ~ mean_rt | factor(tau1) + factor(tau2), groups = cond, 
+         data = data, type = "l", xlim = c(250, 550), ylim = c(-50, 200), 
+         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
+         main = bquote(atop("Delta Plots", .(subtitle))), 
+         auto.key = list(title = "condition", cex = 0.7, columns = 2, 
+                         space = "top"),
+         strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
+  )
 }
 
 
-rt_denss_A <- function(data) {
+rt_denss_vary_tau <- function(data) {
+  subtitle <- paste("for A1 = A2 =", data$A1[1])
   densityplot(~rt | factor(tau1) * factor(tau2), groups = factor(congruency), 
-              plot.points = FALSE, data = data, main = "Densities", xlab = "RT", 
+              data = data, plot.points = FALSE, xlab = "RT", 
+              main = bquote(atop("Densities", .(subtitle))), 
               auto.key = list(title = "condition", cex = 0.7, columns = 2, 
                               space = "top"), 
               strip = strip.custom(strip.names = TRUE, 
@@ -337,9 +316,11 @@ rt_denss_A <- function(data) {
   )
 }
 
-rt_denss_tau <- function(data) {
+rt_denss_vary_A <- function(data) {
+  subtitle <- paste("for tau1 = tau2 =", data$tau1[1])
   densityplot(~rt | factor(A1) * factor(A2), groups = factor(congruency), 
-              plot.points = FALSE, data = data, main = "Densities", xlab = "RT", 
+              data = data, plot.points = FALSE, xlab = "RT", 
+              main = bquote(atop("Densities", .(subtitle))), 
               auto.key = list(title = "condition", cex = 0.7, columns = 2, 
                               space = "top"), 
               strip = strip.custom(strip.names = TRUE, 

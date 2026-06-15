@@ -1,4 +1,5 @@
 library(lattice)
+library(latticeExtra)
 library(ggplot2)
 library(dplyr)
 library(purrr)
@@ -7,6 +8,7 @@ library(microbenchmark)
 library(Rcpp)
 source('helpers.R')
 Rcpp::sourceCpp('../src/dualDMC.cpp')
+
 
 
 # varying parameters
@@ -34,7 +36,7 @@ param_grid$mu_c   <- 0.6
 param_grid$ndt_m  <- 300
 param_grid$ndt_sd <- 30
 
-N_sim <- 1000		# number of simulations per parameter set
+N_sim <- 2000		# number of simulations per parameter set
 
 datDDMC <- simDDMC(param_grid, N_sim)
 
@@ -76,14 +78,6 @@ pdf("out/plots/ER_plt_vary_As.pdf")
 lapply(df_taus_lst, plt_var_As_er)
 dev.off()
 
-# CAFs
-pdf("out/plots/CAF_plt_vary_taus.pdf")
-lapply(df_As_lst, plt_nxn_cafs_As, n_bins = 4)
-dev.off()
-pdf("out/plots/CAF_plt_vary_As.pdf")
-lapply(df_taus_lst, plt_nxn_cafs_taus, n_bins = 4)
-dev.off()
-
 # CDFs
 pdf("out/plots/CDF_plt_vary_taus.pdf")
 lapply(df_As_lst, plt_cdfs_var_taus)
@@ -92,18 +86,26 @@ pdf("out/plots/CDF_plt_vary_As.pdf")
 lapply(df_taus_lst, plt_cdfs_var_As)
 dev.off()
 
+# CAFs
+pdf("out/plots/CAF_plt_vary_taus.pdf")
+lapply(df_As_lst, plt_cafs_var_As, n_bins = 4)
+dev.off()
+pdf("out/plots/CAF_plt_vary_As.pdf")
+lapply(df_taus_lst, plt_cafs_var_taus, n_bins = 4)
+dev.off()
+
 # Delta plots
 pdf("out/plots/delta_plt_vary_taus.pdf")
-lapply(df_taus_lst, plt_nxn_delta_taus)
+lapply(df_As_lst, plt_delta_vary_taus)
 dev.off()
 pdf("out/plots/delta_plt_vary_As.pdf")
-lapply(df_As_lst, plt_nxn_delta_As)
+lapply(df_taus_lst, plt_delta_vary_As)
 dev.off()
 
 # Plot densities
-pdf("out/plots/dens_plt_vary_As.pdf")
-lapply(df_taus_lst, rt_denss_tau)
-dev.off()
 pdf("out/plots/dens_plt_vary_taus.pdf")
-lapply(df_As_lst, rt_denss_A)
+lapply(df_As_lst, rt_denss_vary_tau)
+dev.off()
+pdf("out/plots/dens_plt_vary_As.pdf")
+lapply(df_taus_lst, rt_denss_vary_A)
 dev.off()
