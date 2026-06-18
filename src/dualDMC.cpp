@@ -46,7 +46,8 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
         else if (X >= b){dec = 1;}       // hit b first (i.e. correct response)
         else {dec = 0; Rcpp::Rcout << "No decision made!" << "\n";} // no decision
 
-        double ndt = R::rnorm(ndt_m, ndt_sd);
+        double ndt; 
+        do { ndt = R::rnorm(ndt_m, ndt_sd); } while (ndt < 0); 
         t += ndt;                   // add non decision time
         
         return Rcpp::List::create(

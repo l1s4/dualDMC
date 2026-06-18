@@ -29,11 +29,11 @@ param_grid <- expand.grid(tau1 = tau1_vals, tau2 = tau2_vals,
 # constant parameters
 param_grid$a1     <- 2
 param_grid$a2     <- 2
-param_grid$b      <- 60
+param_grid$b      <- 55
 param_grid$sigma  <- 4 
 param_grid$dt     <- 0.01
-param_grid$mu_c   <- 0.6
-param_grid$ndt_m  <- 300
+param_grid$mu_c   <- 0.5
+param_grid$ndt_m  <- 330
 param_grid$ndt_sd <- 30
 
 N_sim <- 2000		# number of simulations per parameter set
@@ -109,3 +109,4 @@ dev.off()
 pdf("out/plots/dens_plt_vary_As.pdf")
 lapply(df_taus_lst, rt_denss_vary_A)
 dev.off()
+
