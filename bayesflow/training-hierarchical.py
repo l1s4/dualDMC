@@ -145,12 +145,6 @@ global_prior = {
 }
 
 def sample_hierarchical_priors(rng=None, n_subjects = 1):
-    """
-    Sample priors
-    Group level: t0, muc, b, A1, A2: normal distribution; 
-                 tau1, tau2: mixture distribution of two normal distributions
-    Subject level: normal distributions for all parameters
-    """
     if rng == None: 
         rng = np.random.default_rng()
 
@@ -385,13 +379,14 @@ workflow_global = bf.CompositionalWorkflow(
     initial_learning_rate=5e-4,
     summary_network=bf.networks.DeepSet(
         dropout=0.01070354852467715,
-        summary_dim=24             # 4 * dim of inference variables (4 * 1 * 8)
+        summary_dim=56,             # 4 * dim of inference variables (4 * 1 * 14)
+        embed_dim=128
     ),
     inference_network=bf.networks.DiffusionModel(
         dropout=0.01070354852467715
     ),
     checkpoint_filepath = Path(os.getcwd()).resolve(),  # save in cwd
-    checkpoint_name = "HDDM_GLOBAL"        # file name
+    checkpoint_name = "HDDMC_GLOBAL_500"        # file name
 )
 
 
@@ -410,25 +405,24 @@ workflow_local = bf.BasicWorkflow(
     initial_learning_rate=5e-4,
     summary_network=bf.networks.SetTransformer(
         dropout=0.01070354852467715, 
-        summary_dim=24             # 4 * dim of inference variables (4 * 1 * 8)
+        summary_dim=24,             # 4 * dim of inference variables (4 * 1 * 8)
+        embed_dims=(128,128)
     ),
     inference_network=bf.networks.StableConsistencyModel(
         dropout=0.01070354852467715
     ), 
     checkpoint_filepath = Path(os.getcwd()).resolve(),  # save in cwd
-    checkpoint_name = "HDDM_LOCAL"         # file name
+    checkpoint_name = "HDDMC_LOCAL_500"         # file name
 )
 
-# Configuration
+
 N_TRAINING_BATCHES = 256
 BATCH_SIZE = 64
-EPOCHS = 500
+EPOCHS = 300
 N_LOCAL_SUBJECTS = 6    # number of subjects in a single training batch
-N_TRIALS = 200          # trials per subject
-N_TEST = 100            # number of test data sets
-N_SAMPLES = 100         # posterior samples per test dataset
-
-
+N_TRIALS = 100          # trials per subject
+N_TEST = 200            # number of test data sets
+N_SAMPLES = 500         # posterior samples per test dataset
 
 
 training_data = simulator_hierarchical.sample_parallel(
@@ -450,8 +444,11 @@ fig_loss = bf.diagnostics.loss(history=history)
 fig_loss.savefig('loss_global.pdf')
 
 
+# The SetTransformer treats all N_TRIALS (choice, RT) pairs as a single 
+# unordered set.
 training_data = simulator_hierarchical.sample_parallel(
-    (N_TRAINING_BATCHES * BATCH_SIZE), n_trials=N_TRIALS
+    (N_TRAINING_BATCHES * BATCH_SIZE),
+    n_trials=N_TRIALS
 )
 
 history = workflow_local.fit_offline(
@@ -462,3 +459,37 @@ history = workflow_local.fit_offline(
 # save loss figure
 fig_loss = bf.diagnostics.loss(history=history)
 fig_loss.savefig('loss_local.pdf')
+
+
+
+# validate that the trained global workflow can recover parameters on test 
+# datasets of the same scale (N_LOCAL_SUBJECTS subjects, N_TRIALS trials each)
+
+test_data_single = simulator_hierarchical.sample_parallel(
+    N_TEST, n_subjects=N_LOCAL_SUBJECTS, n_trials=N_TRIALS
+)
+test_data_single['sim_data'] = test_data_single['sim_data'].reshape(
+    (N_TEST, N_LOCAL_SUBJECTS * N_TRIALS, 3)
+)
+
+test_posterior = workflow_global.sample(
+    num_samples=N_SAMPLES,
+    conditions={'sim_data': test_data_single['sim_data']},
+    batch_size=BATCH_SIZE,
+)
+
+## Plots
+bf.diagnostics.recovery(
+    estimates=test_posterior,
+    targets=test_data_single
+).savefig('recovery_pt_global.pdf')
+
+bf.diagnostics.calibration_ecdf(
+    estimates=test_posterior,
+    targets=test_data_single
+).savefig('sbc1_pt_global.pdf')
+
+bf.diagnostics.coverage(
+    estimates=test_posterior,
+    targets=test_data_single
+).savefig('coverage_pt_global.pdf')
