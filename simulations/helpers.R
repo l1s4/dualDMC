@@ -224,6 +224,55 @@ plt_delta <- function(df, cond1, cond2, cond3, cond4) {
   points(mean_rt, delta3, type = "b", col = "red")
 }
 
+plt_unc_delta_vary_taus <- function(df) {
+  probs <- seq(0.1, 0.9, by = 0.1)
+  
+  df_lst <- split(df, list(df$tau1, df$tau2))
+  delta_dat <- do.call(rbind, lapply(names(df_lst), function(nm) {
+    df <- df_lst[[nm]]
+    q_pos <- quantile(df$rt[df$auto1 == 1], probs = probs)
+    q_neg <- quantile(df$rt[df$auto1 == -1], probs = probs)
+    parts <- strsplit(nm, "\\.")[[1]]
+    tau1 <- as.numeric(parts[1])
+    tau2 <- as.numeric(parts[2])
+    data.frame(
+      tau1 = tau1, tau2 = tau2, mean_rt = (q_pos + q_neg) / 2,
+      delta = q_neg - q_pos, bin = seq_along(probs)
+    )
+  }))
+  
+  subtitle <- paste("for A1 = A2 =", df$A1[1])
+  xyplot(delta ~ mean_rt | factor(tau1) + factor(tau2), data = delta_dat, 
+         type = "b", xlab = "Mean RT (ms)", ylab = "Delta (ms)",
+         main = bquote(atop("Delta Plots", .(subtitle))), 
+         strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
+  )
+}
+
+plt_unc_delta_vary_As <- function(df) {
+  probs <- seq(0.1, 0.9, by = 0.1)
+  
+  df_lst <- split(df, list(df$A1, df$A2))
+  delta_dat <- do.call(rbind, lapply(names(df_lst), function(nm) {
+    df <- df_lst[[nm]]
+    q_pos <- quantile(df$rt[df$auto1 == 1], probs = probs)
+    q_neg <- quantile(df$rt[df$auto1 == -1], probs = probs)
+    parts <- strsplit(nm, "\\.")[[1]]
+    A1 <- as.numeric(parts[1])
+    A2 <- as.numeric(parts[2])
+    data.frame(
+      A1 = A1, A2 = A2, mean_rt = (q_pos + q_neg) / 2, 
+      delta = q_neg - q_pos, bin = seq_along(probs)
+    )
+  }))
+
+  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
+  xyplot(delta ~ mean_rt | factor(A1) + factor(A2), data = delta_dat, 
+         type = "b", xlab = "Mean RT (ms)", ylab = "Delta (ms)",
+         main = bquote(atop("Delta Plots", .(subtitle))), 
+         strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2"))
+  )
+}
 
 plt_delta_vary_As <- function(df) {
   

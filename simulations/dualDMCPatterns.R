@@ -62,6 +62,7 @@ df_taus_eq <- datDDMC[datDDMC$tau1 == datDDMC$tau2, ]
 df_taus_eq <- mk_congruency(df_taus_eq)   # add congruency column
 df_taus_lst <- split(df_taus_eq, df_taus_eq$tau1)
 
+
 # Mean RTs
 pdf("out/plots/RT_plt_vary_taus.pdf")
 lapply(df_As_lst, plt_var_taus_rt, corr_only = T)   # plot for every level of As
@@ -95,11 +96,12 @@ lapply(df_taus_lst, plt_cafs_var_taus, n_bins = 4)
 dev.off()
 
 # Delta plots
+
 pdf("out/plots/delta_plt_vary_taus.pdf")
-lapply(df_As_lst, plt_delta_vary_taus)
+lapply(df_As_lst, plt_unc_delta_vary_taus)
 dev.off()
 pdf("out/plots/delta_plt_vary_As.pdf")
-lapply(df_taus_lst, plt_delta_vary_As)
+lapply(df_taus_lst, plt_unc_delta_vary_As)
 dev.off()
 
 # Plot densities
