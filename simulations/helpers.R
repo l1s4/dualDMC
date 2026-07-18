@@ -21,9 +21,9 @@ plt_var_taus_rt <- function(data, corr_only) {
   means <- aggregate(rt ~ auto1 + auto2 + tau1 + tau2, FUN = mean, 
                      data = data)
   means$auto1 <- factor(means$auto1, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
+                        labels = c("cong", "inc"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
+                        labels = c("cong", "inc"))
   subtitle <- paste("for A1 = A2 =", data$A1[1])
   
   xyplot(rt ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, data = means, 
@@ -48,14 +48,14 @@ plt_var_As_rt <- function(data, corr_only) {
   means <- aggregate(rt ~ auto1 + auto2 + A1 + A2, FUN = mean, 
                      data = data)
   means$auto1 <- factor(means$auto1, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
+                        labels = c("cong", "inc"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
+                        labels = c("cong", "inc"))
   
   subtitle <- paste("for tau1 = tau2 = ", data$tau1[1])
   xyplot(rt ~ auto1 | factor(A1) * factor(A2), groups = auto2, data = means, 
          type = "b", main = bquote(atop("Mean RTs", .(subtitle))),
-         xlab = "first automatic process", 
+         xlab = "first automatic process", ylim = c(360, 550), 
          strip = strip.custom(strip.names = c(TRUE, TRUE), 
                               var.name = c("A1", "A2")), 
          auto.key = list(title = "second automatic process", space = "top",
@@ -76,9 +76,9 @@ plt_var_taus_er <- function(data) {
   means <- aggregate(error ~ auto1 + auto2 + tau1 + tau2, FUN = mean, 
                      data = data)
   means$auto1 <- factor(means$auto1, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
+                        labels = c("cong", "inc"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
+                        labels = c("cong", "inc"))
   
   subtitle <- paste("for A1 = A2 =", data$A1[1])
   xyplot(error ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, 
@@ -148,19 +148,16 @@ plt_cafs_var_As <- function(df, n_bins) {
   df$error <- ifelse(df$dec == 1, 0, 1)
   df$acc <- 1 - df$error
   
-  df_lst <- split(df, list(factor(df$tau1), factor(df$tau2)), drop = TRUE)
+  caf_data <- df %>% 
+    group_by(tau1, tau2, congruency) %>% 
+    mutate(rt_bin = ntile(rt, n_bins)) %>%
+    group_by(tau1, tau2, congruency, rt_bin) %>% 
+    summarise(mean_acc = mean(acc), mean_rt = mean(rt), .groups = "drop")
   
-  binned_lst <- lapply(df_lst, function(x) {
-    x$rt_bin <- cut(x$rt, breaks = n_bins, labels = FALSE)
-    aggregate(acc ~ rt_bin + congruency, FUN = mean, data = x)
-  })
-  
-  data <- bind_rows(binned_lst, .id = "list_name") %>%
-    separate(list_name, into = c("tau1", "tau2"), sep = "\\.", convert = TRUE)
-
   subtitle <- paste("for A1 = A2 =", df$A1[1])
-  xyplot(acc ~ as.numeric(rt_bin) | factor(tau1) + factor(tau2), groups = congruency, 
-         data = data, type = "b", ylim = c(0, 1.1), xlab = "RT bin", 
+  xyplot(mean_acc ~ as.numeric(rt_bin) | factor(tau1) + factor(tau2), 
+         groups = congruency, 
+         data = caf_data, type = "b", ylim = c(0, 1.1), xlab = "RT bin", 
          ylab = "Accuracy", main = bquote(atop("CAFs", .(subtitle))), 
          auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
          strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
@@ -171,20 +168,16 @@ plt_cafs_var_taus <- function(df, n_bins) {
   
   df$error <- ifelse(df$dec == 1, 0, 1)
   df$acc <- 1 - df$error
-  
-  df_lst <- split(df, list(factor(df$A1), factor(df$A2)), drop = TRUE)
-  
-  binned_lst <- lapply(df_lst, function(x) {
-    x$rt_bin <- cut(x$rt, breaks = n_bins, labels = FALSE)
-    aggregate(acc ~ rt_bin + congruency, FUN = mean, data = x)
-  })
-  
-  data <- bind_rows(binned_lst, .id = "list_name") %>%
-    separate(list_name, into = c("A1", "A2"), sep = "\\.", convert = TRUE)
+ 
+  caf_data <- df %>% 
+    group_by(A1, A2, congruency) %>% 
+    mutate(rt_bin = ntile(rt, n_bins)) %>% 
+    group_by(A1, A2, congruency, rt_bin) %>% 
+    summarise(mean_acc = mean(acc), mean_rt = mean(rt), .groups = "drop")
   
   subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
-  xyplot(acc ~ as.numeric(rt_bin) | factor(A1) + factor(A2), 
-         groups = congruency, data = data, type = "b", xlab = "RT bin", 
+  xyplot(mean_acc ~ as.numeric(rt_bin) | factor(A1) + factor(A2), 
+         groups = congruency, data = caf_data, type = "b", xlab = "RT bin", 
          ylab = "Accuracy", ylim = c(0, 1.1), 
          main = bquote(atop("CAFs", .(subtitle))), 
          auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
@@ -193,7 +186,7 @@ plt_cafs_var_taus <- function(df, n_bins) {
 }
 
 
-# Delta plots DDMC
+# Delta plots
 plt_delta <- function(df, cond1, cond2, cond3, cond4) {
   probs <- seq(0.1, 0.9, by = 0.1)        # quantile probabilities
   
@@ -243,7 +236,8 @@ plt_unc_delta_vary_taus <- function(df) {
   
   subtitle <- paste("for A1 = A2 =", df$A1[1])
   xyplot(delta ~ mean_rt | factor(tau1) + factor(tau2), data = delta_dat, 
-         type = "b", xlab = "Mean RT (ms)", ylab = "Delta (ms)",
+         xlim = c(250, 700), ylim = c(-40, 120), type = "b", 
+         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
          main = bquote(atop("Delta Plots", .(subtitle))), 
          strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
   )
@@ -268,7 +262,8 @@ plt_unc_delta_vary_As <- function(df) {
 
   subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
   xyplot(delta ~ mean_rt | factor(A1) + factor(A2), data = delta_dat, 
-         type = "b", xlab = "Mean RT (ms)", ylab = "Delta (ms)",
+         xlim = c(250, 700), ylim = c(-40, 120), type = "b", 
+         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
          main = bquote(atop("Delta Plots", .(subtitle))), 
          strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2"))
   )
