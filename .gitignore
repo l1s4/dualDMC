@@ -2,3 +2,18 @@
 .Rhistory
 .Rapp.history
 
+# R test file
+simulations/testing.R
+
+# temp files
+bayesflow/temp-functions.txt
+
+# .keras test objects
+bayesflow/TEST_HIERARCHICAL_GLOBAL.keras
+bayesflow/TEST_HIERARCHICAL_LOCAL.keras
+
+# pycache
+bayesflow/__pycache__/
+
+# pdfs
+simulations/out/plots/
