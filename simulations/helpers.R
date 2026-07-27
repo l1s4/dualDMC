@@ -1,373 +1,478 @@
-# Create congruency column from auto1 and auto2 columns
+library(docstring)
+
 mk_congruency <- function(df) {
-  # auto1, auto2 congruent if == 1, else incongruent
-  df$congruency <- ifelse(df$auto1 == 1 & df$auto2 == 1, "congruent_congruent", 
-                          ifelse(df$auto1 == 1 & df$auto2 == -1, "congruent_incongruent", 
-                                 ifelse(df$auto1 == -1 & df$auto2 == 1, "incongruent_congruent", 
-                                        "incongruent_incongruent")))
+  #' Create congruency column
+  #' @param df data frame. Data frame to create congruency column for. 
+  #' Must include columns named auto1 (-1 incongruent, 1 congruent) and 
+  #' auto2 (-1 incongruent, 1 congruent)
+  #' @return dataframe including congruency column 'congruency' 
+  
+  df$congruency <- ifelse(
+    df$auto1 == 1 & df$auto2 == 1, "congruent_congruent", 
+      ifelse(df$auto1 == 1 & df$auto2 == -1, "congruent_incongruent", 
+        ifelse(df$auto1 == -1 & df$auto2 == 1, "incongruent_congruent", 
+          "incongruent_incongruent")))
   df
 }
 
-# mean RT plots
-plt_var_taus_rt <- function(data, corr_only) {
-  # Input: 
-  #   - data: dataframe with columns auto1, auto2 (-1 incongruent, 1 congruent), 
-  #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data expected to be aggregated across A1, A2 (i.e. A1 == A2)
-  #   - corr_only: bool, if TRUE only correct trials are used
-  # Output: lattice plot of mean RTs for combinations of tau1 x tau2
+mk_subtitle <- function(df) {
+  #' Generate subtitle containing parameter values 
+  #' @param df data frame. Data frame to create subtitle for
+  #' @return string containing unique values for different parameters in df
+
+  A1_values <- paste(sort(unique(df$A1)), collapse = " / ")
+  A2_values <- paste(sort(unique(df$A2)), collapse = " / ")
+  tau1_values <- paste(sort(unique(df$tau1)), collapse = " / ")
+  tau2_values <- paste(sort(unique(df$tau2)), collapse = " / ")
+  b_values <- paste(sort(unique(df$b)), collapse = " / ")
+  muc_values <- paste(sort(unique(df$mu_c)), collapse = " / ")
+  sigma_values <- paste(sort(unique(df$sigma)), collapse = " / ")
+  dt_values <- paste(sort(unique(df$dt)), collapse = " / ")
+  ndtm_values <- paste(sort(unique(df$ndt_m)), collapse = " / ")
+  ndtsd_values <- paste(sort(unique(df$ndt_sd)), collapse = " / ")
   
-  if (corr_only) {data <- data[data$dec == 1, ]}    # correct trials only
-  means <- aggregate(rt ~ auto1 + auto2 + tau1 + tau2, FUN = mean, 
-                     data = data)
+  subtitle <- bquote(
+    b == .(b_values) * "," ~
+    mu[c] == .(muc_values) * "," ~ 
+    A[1] == .(A1_values) * "," ~ 
+    A[2] == .(A2_values) * "," ~ 
+    tau[1] == .(tau1_values) * "," ~ 
+    tau[2] == .(tau2_values) * "," ~ 
+    sigma == .(sigma_values) * "," ~ 
+    dt == .(dt_values) * "," ~ 
+    ndt[M] == .(ndtm_values) * "," ~ 
+    ndt[SD] == .(ndtsd_values)
+  )
+  
+  subtitle
+}
+
+# mean RT/ER plots: vary two parameters
+plt_means <- function(df, v1, v2, type, corr_only = TRUE, subt = TRUE, 
+                      xlab_name = "First Automatic Process", 
+                      lines_name = "Second Automatic Process") {
+  #' Lattice interaction plots for means per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v1, v2, rt, dec (1 correct, -1 incorrect). 
+  #' @param v1 character. First parameter to aggregate over
+  #' @param v2 character. Second parameter to aggregate over
+  #' @param type character. Determines dependent variable, either 'RT' or 'ER'
+  #' @param subt boolean. If TRUE, a subtitle with parameter values is added
+  #' @param corr_only boolean. If TRUE, only correct trials are used 
+  #' for type = 'RT'
+  #' @param xlab_name character. Name for the x-axis.
+  #' @param lines_name character. Name for the grouping-factor
+  
+  if (type == "RT") {
+    if (corr_only) {df <- df[df$dec == 1, ]}    # correct trials only
+    form <- as.formula(paste("rt ~ auto1 + auto2 +", v1, "+", v2))
+    plot_form <- as.formula(
+      paste0("rt ~ auto1 | factor(", v1, ") + factor(", v2, ")"))
+    ymin = 360 
+    ymax = 550
+  } else {
+    df$error <- ifelse(df$dec == -1, 1, 0)
+    form <- as.formula(paste("error ~ auto1 + auto2 +", v1, "+", v2))
+    plot_form <- as.formula(
+      paste0("error ~ auto1 | factor(", v1, ") + factor(", v2, ")"))
+    ymin = 0
+    ymax = 1
+  }
+  
+  means <- aggregate(form, FUN = mean, data = df)
   means$auto1 <- factor(means$auto1, levels = c(1, -1), 
                         labels = c("cong", "inc"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
                         labels = c("cong", "inc"))
-  subtitle <- paste("for A1 = A2 =", data$A1[1])
   
-  xyplot(rt ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, data = means, 
-         type = "b", main = bquote(atop("Mean RTs", .(subtitle))),
-         xlab = "first automatic process", ylab = "RT", 
-         strip = strip.custom(strip.names = c(TRUE, TRUE), 
-                              var.name = c("tau1", "tau2")), 
-         auto.key = list(title = "second automatic process", space = "top", 
-                         cex = .7) 
+  label1 <- switch (v1,
+    "tau1" = expression(tau[1]), 
+    "A1" = expression(A[1]), 
+  )
+  label2 <- switch (v2,
+    "tau2" = expression(tau[2]), 
+    "A2" = expression(A[2]), 
+  )
+  subtitle <- mk_subtitle(df)
+  xyplot(plot_form, groups = auto2, data = means, type = c("b", "g"), 
+         ylim = c(ymin, ymax), main = paste0("Mean ", type, "s"), ylab = type, 
+         xlab = xlab_name, sub = if(subt) {list(subtitle, cex = .7)}, 
+         strip = strip.custom(strip.names = TRUE, sep = " = ", 
+           var.name = c(label1, label2)), 
+         auto.key = list(title = lines_name, space = "top", cex = .7) 
   )
 }
 
-plt_var_As_rt <- function(data, corr_only) {
-  # Input: 
-  #   - data: dataframe with columns auto1, auto2 (-1 incongruent, 1 congruent), 
-  #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data expected to be aggregated across tau1, tau2 (i.e. tau1 == tau2)
-  #   - corr_only: bool, if TRUE only correct trials are used
-  # Output: lattice plot of mean RTs for combinations of A1 x A2
+# mean RT: vary one parameter only
+plt_means_single <- function(df, v, type, corr_only = TRUE, n_rows, n_cols, 
+                             xlab_name = "First Automatic Process", 
+                             lines_name = "Second Automatic Process") {
+  #' Lattice interaction plots for means per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v, rt, dec (1 correct, -1 incorrect). 
+  #' @param v character. Parameter to aggregate over
+  #' @param type character. Determines dependent variable, either 'RT' or 'ER'
+  #' @param corr_only boolean. If TRUE, only correct trials are used 
+  #' for type = 'RT'
+  #' @param n_rows integer. Number of panel-rows in the plot
+  #' @param n_cols integer. Number of panel-columns in the plot
+  #' @param xlab_name character. Name for the x-axis.
+  #' @param lines_name character. Name for the grouping-factor
   
-  if (corr_only) {data <- data[data$dec == 1, ]}    # correct trials only
-  means <- aggregate(rt ~ auto1 + auto2 + A1 + A2, FUN = mean, 
-                     data = data)
+  if (type == "RT") {
+    if (corr_only) {df <- df[df$dec == 1, ]}    # correct trials only
+    form <- as.formula(paste("rt ~ auto1 + auto2 +", v))
+    plot_form <- as.formula(paste0("rt ~ auto1 | factor(", v, ")"))
+    ymin = 300 
+    ymax = 600
+  } else {
+    df$error <- ifelse(df$dec == -1, 1, 0)
+    form <- as.formula(paste("error ~ auto1 + auto2 +", v))
+    plot_form <- as.formula(paste0("error ~ auto1 | factor(", v, ")"))
+    ymin = 0
+    ymax = 1
+  }
+  means <- aggregate(form, FUN = mean, data = df)
   means$auto1 <- factor(means$auto1, levels = c(1, -1), 
                         labels = c("cong", "inc"))
   means$auto2 <- factor(means$auto2, levels = c(1, -1), 
                         labels = c("cong", "inc"))
-  
-  subtitle <- paste("for tau1 = tau2 = ", data$tau1[1])
-  xyplot(rt ~ auto1 | factor(A1) * factor(A2), groups = auto2, data = means, 
-         type = "b", main = bquote(atop("Mean RTs", .(subtitle))),
-         xlab = "first automatic process", ylim = c(360, 550), 
-         strip = strip.custom(strip.names = c(TRUE, TRUE), 
-                              var.name = c("A1", "A2")), 
-         auto.key = list(title = "second automatic process", space = "top",
-                         cex = .7), 
+  label <- switch (v,
+                   "mu_c" = expression(mu[c]), 
+                   "tau1" = expression(tau[1]), 
+                   "tau2" = expression(tau[2]), 
+                   "A1" = expression(A[1]), 
+                   "A2" = expression(A[2]), 
+                   "ndt_m" = expression(ndt[M]), 
+                   "ndt_sd" = expression(ndt[SD]), 
+                   v
+  )
+  subtitle <- mk_subtitle(df)
+  xyplot(plot_form, groups = auto2, data = means, type = c("b", "g"),
+         xlab = xlab_name, ylab = type, ylim = c(ymin, ymax), 
+         strip = strip.custom(strip.names = TRUE, sep = " = ", var.name = label), 
+         auto.key = list(title = lines_name, cex = .7), 
+         layout = c(n_cols, n_rows)
   )
 }
 
-# mean ER plots
-plt_var_taus_er <- function(data) {
-  # Input: 
-  #   - data: dataframe containing columns auto1, auto2 (-1 incongruent, 1 congruent), 
-  #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data expected to be aggregated across A1, A2 (i.e. A1 == A2)
-  #   - corr_only: bool, if TRUE only correct trials are used
-  # Output: lattice plot of mean ERs for combinations of tau1 x tau2
+
+# CAF plots
+plt_cafs <- function(df, n_bins, v1, v2, subt = TRUE, title = TRUE) {
+  #' Lattice plot for CAFs per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v1, v2, rt, dec (1 correct, -1 incorrect). 
+  #' @param n_bins integer. Number of RT bins
+  #' @param v1 character. First parameter to aggregate over
+  #' @param v2 character. Second parameter to aggregate over
+  #' @param subt boolean. If TRUE, a subtitle with parameter values is added
+  #' @param title boolean. If TRUE, a 'CAFs' is added as a title
   
-  data$error <- ifelse(data$dec == -1, 1, 0)
-  means <- aggregate(error ~ auto1 + auto2 + tau1 + tau2, FUN = mean, 
-                     data = data)
-  means$auto1 <- factor(means$auto1, levels = c(1, -1), 
-                        labels = c("cong", "inc"))
-  means$auto2 <- factor(means$auto2, levels = c(1, -1), 
-                        labels = c("cong", "inc"))
+  df$error <- ifelse(df$dec == 1, 0, 1)
+  df$acc <- 1 - df$error
   
-  subtitle <- paste("for A1 = A2 =", data$A1[1])
-  xyplot(error ~ auto1 | factor(tau1) * factor(tau2), groups = auto2, 
-         data = means, ylim = c(0, 1), type = "b", 
-         main = bquote(atop("Mean ERs", .(subtitle))), 
-         xlab = "first automatic process", 
-         strip = strip.custom(strip.names = c(TRUE, TRUE), 
-                              var.name = c("tau1", "tau2")), 
-         auto.key = list(title = "second automatic process", space = "top", 
-                         cex = .7),
+  caf_data <- df %>% 
+    group_by(.data[[v1]], .data[[v2]], congruency) %>% 
+    mutate(rt_bin = ntile(rt, n_bins)) %>%
+    group_by(.data[[v1]], .data[[v2]], congruency, rt_bin) %>% 
+    summarise(mean_acc = mean(acc), mean_rt = mean(rt), .groups = "drop")
+  
+  label1 <- switch (v1,
+                    "tau1" = expression(tau[1]), 
+                    "A1" = expression(A[1]), 
+  )
+  label2 <- switch (v2,
+                    "tau2" = expression(tau[2]), 
+                    "A2" = expression(A[2]), 
+  )
+  
+  plot_form <- as.formula(
+    paste0("mean_acc ~ rt_bin | factor(", v1, ") + factor(", v2, ")"))
+  subtitle <- mk_subtitle(df)
+  xyplot(plot_form, groups = congruency, data = caf_data, type = c("b", "g"), 
+         ylim = c(0, 1.1), xlab = "RT bin", ylab = "Accuracy",
+         sub = if(subt) {list(subtitle, cex = .7)}, main = if(title) {"CAFs"},
+         strip = strip.custom(strip.names = TRUE, sep = " = ", 
+                              var.name = c(label1, label2)),
+         auto.key = list(title = "Condition", cex = .7, columns = 2, 
+                         space = "top"), 
+         scales = list(x = list(at = seq(1, n_bins, by=1)))
   )
 }
 
-plt_var_As_er <- function(data) {
-  # Input: 
-  #   - data: dataframe containing columns auto1, auto2 (-1 incongruent, 1 congruent), 
-  #           A1, A2, tau1, tau2, rt, dec (1 correct, -1 incorrect). 
-  #           data expected to be aggregated across tau1, tau2 (i.e. tau1 == tau2)
-  #   - corr_only: bool, if TRUE only correct trials are used
-  # Output: lattice plot of mean ERs for combinations of A1 x A2
+plt_cafs_single <- function(df, n_bins, v, subt = FALSE, title = FALSE, 
+                            n_rows, n_cols) {
+  #' Lattice plot for CAFs per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v, rt, dec (1 correct, -1 incorrect). 
+  #' @param n_bins integer. Number of RT bins
+  #' @param v character. Parameter to aggregate over
+  #' @param subt boolean. If TRUE, a subtitle with parameter values is added
+  #' @param title boolean. If TRUE, a 'CAFs' is added as a title
+  #' @param n_rows integer. Number of panel-rows in the plot
+  #' @param n_cols integer. Number of panel-columns in the plot
   
-  data$error <- ifelse(data$dec == -1, 1, 0)
-  means <- aggregate(error ~ auto1 + auto2 + A1 + A2, FUN = mean, 
-                     data = data)
-  means$auto1 <- factor(means$auto1, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
-  means$auto2 <- factor(means$auto2, levels = c(1, -1), 
-                        labels = c("congruent", "incongruent"))
-  subtitle <- paste("for tau1 = tau2 =", data$tau1[1])
+  df$error <- ifelse(df$dec == 1, 0, 1)
+  df$acc <- 1 - df$error
   
-    xyplot(error ~ auto1 | factor(A1) * factor(A2), groups = auto2, 
-           data = means, type = "b", xlab = "first automatic process", 
-           main = bquote(atop("Mean ERs", .(subtitle))), ylim = c(0, 1), 
-         strip = strip.custom(strip.names = c(TRUE, TRUE), 
-                              var.name = c("A1", "A2")), 
-         auto.key = list(title = "second automatic process", space = "top", 
-                         cex = .7),
+  caf_data <- df %>% 
+    group_by(.data[[v]], congruency) %>% 
+    mutate(rt_bin = ntile(rt, n_bins)) %>%
+    group_by(.data[[v]], congruency, rt_bin) %>% 
+    summarise(mean_acc = mean(acc), mean_rt = mean(rt), .groups = "drop")
+  
+  label <- switch (v,
+                   "mu_c" = expression(mu[c]), 
+                   "tau1" = expression(tau[1]), 
+                   "tau2" = expression(tau[2]), 
+                   "A1" = expression(A[1]), 
+                   "A2" = expression(A[2]), 
+                   "ndt_m" = expression(ndt[M]), 
+                   "ndt_sd" = expression(ndt[SD]), 
+                   v
+  )
+  
+  plot_form <- as.formula(
+    paste0("mean_acc ~ rt_bin | factor(", v, ")"))
+  subtitle <- mk_subtitle(df)
+  xyplot(plot_form, groups = congruency, data = caf_data, type = c("b", "g"), 
+         ylim = c(0, 1.1), xlab = "RT bin", ylab = "Accuracy", 
+         main = if(title) {"CAFs"}, sub = if(subt) {list(subtitle, cex = .7)}, 
+         strip = strip.custom(strip.names = TRUE, sep = " = ", var.name = label),
+         auto.key = list(title = "Condition", cex = .7, columns = 2, 
+                         space = "bottom"), 
+         scales = list(x = list(at = seq(1, n_bins, by=1))), 
+         layout = c(n_cols, n_rows)
   )
 }
 
+# Delta plots
+plt_delta <- function(df, v1, v2, conditional = FALSE, subt = TRUE, 
+                      title = TRUE) {
+  #' Lattice plot for delta functions of the first process
+  #' Calculated as difference between (auto1 == 1) - (auto1 == -1)
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v1, v2, rt, dec (1 correct, -1 incorrect). 
+  #' @param v1 character. First parameter to aggregate over
+  #' @param v2 character. Second parameter to aggregate over
+  #' @param conditional boolean. If TRUE, two delta functions will be 
+  #' calculated. One is for auto2 == -1, one for auto2 == 1
+  #' @param subt boolean. If TRUE, a subtitle with parameter values is added
+  #' @param title boolean. If TRUE, a 'CAFs' is added as a title
+
+  probs <- seq(0.1, 0.9, by = 0.1)
+  if(conditional) {
+    df_lst <- split(df, list(df[[v1]], df[[v2]], df$auto2))
+  } else {
+    df_lst <- split(df, list(df[[v1]], df[[v2]]))
+  }
+  delta_dat <- do.call(rbind, lapply(names(df_lst), function(nm) {
+    df <- df_lst[[nm]]
+    q_pos <- quantile(df$rt[df$auto1 == 1], probs = probs)
+    q_neg <- quantile(df$rt[df$auto1 == -1], probs = probs)
+    parts <- strsplit(nm, "\\.")[[1]]
+    v1 <- as.numeric(parts[1])
+    v2 <- as.numeric(parts[2])
+    if (conditional) {auto2 <- as.numeric(parts[3])}
+    data.frame(
+      v1 = v1, v2 = v2, mean_rt = (q_pos + q_neg) / 2,
+      delta = q_neg - q_pos, bin = seq_along(probs), 
+      auto2 = if (conditional) {auto2} else {NA}
+    )
+  }))
+  
+  label1 <- switch (v1,
+                    "tau1" = expression(tau[1]), 
+                    "A1" = expression(A[1]), 
+  )
+  label2 <- switch (v2,
+                    "tau2" = expression(tau[2]), 
+                    "A2" = expression(A[2]), 
+  ) 
+  subtitle <- mk_subtitle(df)
+  xyplot(delta ~ mean_rt | factor(v1) + factor(v2), data = delta_dat, 
+         groups = if (conditional) {auto2}, main = if(title) {"Delta Plots"}, 
+         sub = if(subt) {list(subtitle, cex = .7)}, type = c("b", "g"), 
+         xlim = c(250, 700), ylim = c(-40, 120), 
+         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
+         strip = strip.custom(strip.names = TRUE, sep = " = ", 
+                              var.name = c(label1, label2))
+  )
+}
+
+plt_delta_single <- function(df, v, conditional = FALSE, subt = FALSE, 
+                             title = FALSE, n_rows, n_cols) {
+  #' Lattice plot for delta functions of the first process
+  #' Calculated as difference between (auto1 == 1) - (auto1 == -1)
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v, rt, dec (1 correct, -1 incorrect). 
+  #' @param v character. Parameter to aggregate over
+  #' @param conditional boolean. If TRUE, two delta functions will be 
+  #' calculated. One is for auto2 == -1, one for auto2 == 1
+  #' @param subt boolean. If TRUE, a subtitle with parameter values is added
+  #' @param title boolean. If TRUE, a 'CAFs' is added as a title
+  #' @param n_rows integer. Number of panel-rows in the plot
+  #' @param n_cols integer. Number of panel-columns in the plot
+  probs <- seq(0.1, 0.9, by = 0.1)
+  if (v == "mu_c") {
+  }
+  if(conditional) {
+    df_lst <- split(df, list(df[[v]], df$auto2), sep = "_")
+  } else {
+    df_lst <- split(df, list(df[[v]]), sep = "_")
+  }
+  delta_dat <- do.call(rbind, lapply(names(df_lst), function(nm) {
+    df <- df_lst[[nm]]
+    q_pos <- quantile(df$rt[df$auto1 == 1], probs = probs)
+    q_neg <- quantile(df$rt[df$auto1 == -1], probs = probs)
+    parts <- strsplit(nm, "\\_")[[1]]
+    v <- as.numeric(parts[1])
+    if (conditional) {auto2 <- as.numeric(parts[2])}
+    data.frame(
+      auto2 = if (conditional) {auto2} else {NA}, 
+      v = v, mean_rt = (q_pos + q_neg) / 2,
+      delta = q_neg - q_pos, bin = seq_along(probs) 
+    ) 
+  }))
+  
+  label <- switch (v,
+                   "mu_c" = expression(mu[c]), 
+                   "tau1" = expression(tau[1]), 
+                   "tau2" = expression(tau[2]), 
+                   "A1" = expression(A[1]), 
+                   "A2" = expression(A[2]), 
+                   "ndt_m" = expression(ndt[M]), 
+                   "ndt_sd" = expression(ndt[SD]), 
+                   v
+  )
+  
+  subtitle <- mk_subtitle(df)
+  xyplot(delta ~ mean_rt | factor(v), data = delta_dat, 
+         groups = if (conditional) {auto2}, type = c("b", "g"),  
+         xlim = c(250, 700), ylim = c(-40, 120), 
+         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
+         main = "Delta Plots",  sub = list(subtitle, cex = .7), 
+         strip = strip.custom(strip.names = TRUE, sep = " = ", var.name = label), 
+         layout = c(n_cols, n_rows)
+  )
+}
 
 
 # ECDF plots
-plt_cdfs_var_taus <- function(df) {
-  subtitle <- paste("for A1 = A2 =", df$A1[1])
-  ecdfplot(~rt | factor(tau1) + factor(tau2), groups = congruency, data = df, 
-         type = "l", xlim = c(0, 1000), xlab = "RT", ylab = "ECDF",  
-         main = bquote(atop("CDFs", .(subtitle))), 
-         strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2")),
-         auto.key = list(title = "condition", cex = 0.7, columns = 2)
+plt_cdfs <- function(df, v1, v2) {
+  #' Lattice plot for CDFs per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v1, v2, rt, dec (1 correct, -1 incorrect). 
+  #' @param v1 character. First parameter to aggregate over
+  #' @param v2 character. Second parameter to aggregate over
+  
+  label1 <- switch (v1,
+                    "tau1" = expression(tau[1]), 
+                    "A1" = expression(A[1]), 
   )
-}
-
-plt_cdfs_var_As <- function(df) {
-  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
-  ecdfplot(~ rt | factor(A1) + factor(A2), groups = congruency, data = df, 
-           type = "l", xlim = c(0, 1000), xlab = "RT", ylab = "ECDF",  
-           main = bquote(atop("CDFs", .(subtitle))), 
-           strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2")),
+  label2 <- switch (v2,
+                    "tau2" = expression(tau[2]), 
+                    "A2" = expression(A[2]), 
+  ) 
+  subtitle <- mk_subtitle(df)
+  plot_form <- as.formula(
+    paste0("~ rt | factor(", v1, ") + factor(", v2, ")"))
+  ecdfplot(plot_form, groups = congruency, data = df, type = c("l", "g"), 
+           xlim = c(0, 1000), xlab = "RT", ylab = "ECDF",  main = "CDFs", 
+           sub = list(subtitle, cex = .7), 
+           strip = strip.custom(strip.names = TRUE, sep = " = ", 
+                                var.name = c(label1, label2)), 
            auto.key = list(title = "condition", cex = 0.7, columns = 2)
   )
 }
 
-# CAF plots
-plt_cafs_var_As <- function(df, n_bins) {
+plt_cdfs_single <- function(df, v, n_cols, n_rows) {
+  #' Lattice plot for CDFs per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v1, rt, dec (1 correct, -1 incorrect). 
+  #' @param v character. Parameter to aggregate over
+  #' @param n_rows integer. Number of panel-rows in the plot
+  #' @param n_cols integer. Number of panel-columns in the plot
   
-  df$error <- ifelse(df$dec == 1, 0, 1)
-  df$acc <- 1 - df$error
-  
-  caf_data <- df %>% 
-    group_by(tau1, tau2, congruency) %>% 
-    mutate(rt_bin = ntile(rt, n_bins)) %>%
-    group_by(tau1, tau2, congruency, rt_bin) %>% 
-    summarise(mean_acc = mean(acc), mean_rt = mean(rt), .groups = "drop")
-  
-  subtitle <- paste("for A1 = A2 =", df$A1[1])
-  xyplot(mean_acc ~ as.numeric(rt_bin) | factor(tau1) + factor(tau2), 
-         groups = congruency, 
-         data = caf_data, type = "b", ylim = c(0, 1.1), xlab = "RT bin", 
-         ylab = "Accuracy", main = bquote(atop("CAFs", .(subtitle))), 
-         auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
-         strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
+  label <- switch (v,
+                   "mu_c" = expression(mu[c]), 
+                   "tau1" = expression(tau[1]), 
+                   "tau2" = expression(tau[2]), 
+                   "A1" = expression(A[1]), 
+                   "A2" = expression(A[2]), 
+                   "ndt_m" = expression(ndt[M]), 
+                   "ndt_sd" = expression(ndt[SD]), 
+                   v
+  )
+  subtitle <- mk_subtitle(df)
+  plot_form <- as.formula(paste0("~ rt | factor(", v, ")"))
+  ecdfplot(plot_form, groups = congruency, data = df, type = c("l", "g"), 
+           xlim = c(0, 1000), xlab = "RT", ylab = "ECDF",  main = "CDFs", 
+           sub = list(subtitle, cex = .7), 
+           strip = strip.custom(strip.names = TRUE, sep = " = ", 
+                                var.name = label), 
+           auto.key = list(title = "condition", cex = 0.7, columns = 2), 
+           layout = c(n_cols, n_rows)
   )
 }
 
-plt_cafs_var_taus <- function(df, n_bins) {
-  
-  df$error <- ifelse(df$dec == 1, 0, 1)
-  df$acc <- 1 - df$error
+
+# Densities
+plt_denss <- function(df, v1, v2) {
+  #' Lattice plot for densities per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v1, v2, rt, dec (1 correct, -1 incorrect). 
+  #' @param v1 character. First parameter to aggregate over
+  #' @param v2 character. Second parameter to aggregate over
+
+  label1 <- switch (v1,
+                    "tau1" = expression(tau[1]), 
+                    "A1" = expression(A[1]), 
+  )
+  label2 <- switch (v2,
+                    "tau2" = expression(tau[2]), 
+                    "A2" = expression(A[2]), 
+  ) 
+  subtitle <- mk_subtitle(df)
+  plot_form <- as.formula(
+    paste0("~ rt | factor(", v1, ") + factor(", v2, ")"))
+  densityplot(plot_form, groups = factor(congruency), data = df, 
+              plot.points = FALSE, xlab = "RT", main = "Densities", 
+              sub = list(subtitle, cex = .7),
+              auto.key = list(title = "condition", cex = 0.7, columns = 2, 
+                              space = "top"), 
+              strip = strip.custom(strip.names = TRUE, sep = " = ", 
+                                   var.name = c(label1, label2)), 
+  )
+}
+
+plt_denss_single <- function(df, v, n_cols, n_rows) {
+  #' Lattice plot for densities per condition
+  #' @param df data frame. Must include columns auto1, auto2 (-1 incongruent, 
+  #' 1 congruent), v, rt, dec (1 correct, -1 incorrect). 
+  #' @param v character. Parameter to aggregate over
+  #' @param n_rows integer. Number of panel-rows in the plot
+  #' @param n_cols integer. Number of panel-columns in the plot
  
-  caf_data <- df %>% 
-    group_by(A1, A2, congruency) %>% 
-    mutate(rt_bin = ntile(rt, n_bins)) %>% 
-    group_by(A1, A2, congruency, rt_bin) %>% 
-    summarise(mean_acc = mean(acc), mean_rt = mean(rt), .groups = "drop")
-  
-  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
-  xyplot(mean_acc ~ as.numeric(rt_bin) | factor(A1) + factor(A2), 
-         groups = congruency, data = caf_data, type = "b", xlab = "RT bin", 
-         ylab = "Accuracy", ylim = c(0, 1.1), 
-         main = bquote(atop("CAFs", .(subtitle))), 
-         auto.key = list(title = "condition", cex = .7, columns = 2, space = "top"),
-         strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2")),
+  label <- switch (v,
+                   "mu_c" = expression(mu[c]), 
+                   "tau1" = expression(tau[1]), 
+                   "tau2" = expression(tau[2]), 
+                   "A1" = expression(A[1]), 
+                   "A2" = expression(A[2]), 
+                   "ndt_m" = expression(ndt[M]), 
+                   "ndt_sd" = expression(ndt[SD]), 
+                   v
   )
-}
-
-
-# Delta plots
-plt_delta <- function(df, cond1, cond2, cond3, cond4) {
-  probs <- seq(0.1, 0.9, by = 0.1)        # quantile probabilities
-  
-  df1 <- df[df$congruency == cond1, ]
-  df2 <- df[df$congruency == cond2, ]
-  df3 <- df[df$congruency == cond3, ]
-  df4 <- df[df$congruency == cond4, ]
-  
-  q1 <- quantile(df1$rt, probs = probs)
-  q2 <- quantile(df2$rt, probs = probs)
-  q3 <- quantile(df3$rt, probs = probs)
-  q4 <- quantile(df4$rt, probs = probs)
-  
-  delta1 <- q1 - q2
-  delta2 <- q1 - q3
-  delta3 <- q1 - q4
-  mean_rt <- (q1 + q2 + q3 + q4) / 4
-  
-  print(delta1)
-  
-  
-  # Plot
-  plot(mean_rt, delta1, type = "n", pch = 16, 
-       xlim = c(300, 500), ylim = c(-10, 100), 
-       xlab = "Mean RT (ms)", ylab = "delta", main = "Delta Plot")
-  points(mean_rt, delta1, type = "b", col = "green")
-  points(mean_rt, delta2, type = "b", col = "blue")
-  points(mean_rt, delta3, type = "b", col = "red")
-}
-
-plt_unc_delta_vary_taus <- function(df) {
-  probs <- seq(0.1, 0.9, by = 0.1)
-  
-  df_lst <- split(df, list(df$tau1, df$tau2))
-  delta_dat <- do.call(rbind, lapply(names(df_lst), function(nm) {
-    df <- df_lst[[nm]]
-    q_pos <- quantile(df$rt[df$auto1 == 1], probs = probs)
-    q_neg <- quantile(df$rt[df$auto1 == -1], probs = probs)
-    parts <- strsplit(nm, "\\.")[[1]]
-    tau1 <- as.numeric(parts[1])
-    tau2 <- as.numeric(parts[2])
-    data.frame(
-      tau1 = tau1, tau2 = tau2, mean_rt = (q_pos + q_neg) / 2,
-      delta = q_neg - q_pos, bin = seq_along(probs)
-    )
-  }))
-  
-  subtitle <- paste("for A1 = A2 =", df$A1[1])
-  xyplot(delta ~ mean_rt | factor(tau1) + factor(tau2), data = delta_dat, 
-         xlim = c(250, 700), ylim = c(-40, 120), type = "b", 
-         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
-         main = bquote(atop("Delta Plots", .(subtitle))), 
-         strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
-  )
-}
-
-plt_unc_delta_vary_As <- function(df) {
-  probs <- seq(0.1, 0.9, by = 0.1)
-  
-  df_lst <- split(df, list(df$A1, df$A2))
-  delta_dat <- do.call(rbind, lapply(names(df_lst), function(nm) {
-    df <- df_lst[[nm]]
-    q_pos <- quantile(df$rt[df$auto1 == 1], probs = probs)
-    q_neg <- quantile(df$rt[df$auto1 == -1], probs = probs)
-    parts <- strsplit(nm, "\\.")[[1]]
-    A1 <- as.numeric(parts[1])
-    A2 <- as.numeric(parts[2])
-    data.frame(
-      A1 = A1, A2 = A2, mean_rt = (q_pos + q_neg) / 2, 
-      delta = q_neg - q_pos, bin = seq_along(probs)
-    )
-  }))
-
-  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
-  xyplot(delta ~ mean_rt | factor(A1) + factor(A2), data = delta_dat, 
-         xlim = c(250, 700), ylim = c(-40, 120), type = "b", 
-         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
-         main = bquote(atop("Delta Plots", .(subtitle))), 
-         strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2"))
-  )
-}
-
-plt_delta_vary_As <- function(df) {
-  
-  df$tau1 <- factor(df$tau1)
-  df$tau2 <- factor(df$tau2)
-  
-  probs = seq(0.1, 0.9, by = 0.1)
-  
-  df_lst <- split(df, list(df$A1, df$A2))
-  
-  delta_lst <- lapply(df_lst, function(x) {
-    
-    qs <- tapply(x$rt, x$congruency, quantile, probs = probs)
-
-    q_names <- names(qs)
-    ref <- qs[[4]]    # reference category: incongruent_incongruent
-   
-    deltas <- lapply(qs, function(q) ref - q)
-    mean_rt <- Reduce("+", qs) / length(qs)
-   
-    do.call(rbind, lapply(names(deltas), function(x) {
-      data.frame(mean_rt = mean_rt, delta = deltas[[x]], cond = x)
-    }))
-  })
-  
-  data <- bind_rows(delta_lst, .id = "list_name") |>
-    separate(list_name, into = c("A1", "A2"), sep = "\\.", convert = TRUE)
-  
-  data <- data[data$cond != "incongruent_incongruent", ] # drop reference cat
-  subtitle <- paste("for tau1 = tau2 =", df$tau1[1])
-  xyplot(delta ~ mean_rt | factor(A1) + factor(A2), groups = cond, data = data,
-         type = "l", xlim = c(250, 550), ylim = c(-50, 200), 
-         xlab = "Mean RT (ms)", ylab = "Delta (ms)", 
-         main = bquote(atop("Delta Plots", .(subtitle))), 
-         auto.key = list(title = "condition", cex = 0.7, columns = 2, 
-                         space = "top"),
-         strip = strip.custom(strip.names = TRUE, var.name = c("A1", "A2"))
-  )
-}
-
-plt_delta_vary_taus <- function(df) {
-  
-  df$tau1 <- factor(df$tau1)
-  df$tau2 <- factor(df$tau2)
-  
-  probs = seq(0.1, 0.9, by = 0.1)
-  
-  df_lst <- split(df, list(df$tau1, df$tau2))
-  
-  delta_lst <- lapply(df_lst, function(x) {
-    
-    qs <- tapply(x$rt, x$congruency, quantile, probs = probs)
-    
-    q_names <- names(qs)
-    ref <- qs[[4]]    # reference category: incongruent_incongruent
-    
-    deltas <- lapply(qs, function(q) ref - q)
-    mean_rt <- Reduce("+", qs) / length(qs)
-    
-    do.call(rbind, lapply(names(deltas), function(x) {
-      data.frame(mean_rt = mean_rt, delta = deltas[[x]], cond = x)
-    }))
-  })
-  
-  data <- bind_rows(delta_lst, .id = "list_name") |>
-    separate(list_name, into = c("tau1", "tau2"), sep = "\\.", convert = TRUE)
-  
-  data <- data[data$cond != "incongruent_incongruent", ] # drop reference cat
-  subtitle <- paste("for A1 = A2 =", df$A1[1])
-  xyplot(delta ~ mean_rt | factor(tau1) + factor(tau2), groups = cond, 
-         data = data, type = "l", xlim = c(250, 550), ylim = c(-50, 200), 
-         xlab = "Mean RT (ms)", ylab = "Delta (ms)",
-         main = bquote(atop("Delta Plots", .(subtitle))), 
-         auto.key = list(title = "condition", cex = 0.7, columns = 2, 
-                         space = "top"),
-         strip = strip.custom(strip.names = TRUE, var.name = c("tau1", "tau2"))
-  )
-}
-
-
-rt_denss_vary_tau <- function(data) {
-  subtitle <- paste("for A1 = A2 =", data$A1[1])
-  densityplot(~rt | factor(tau1) * factor(tau2), groups = factor(congruency), 
-              data = data, plot.points = FALSE, xlab = "RT", 
-              main = bquote(atop("Densities", .(subtitle))), 
+  subtitle <- mk_subtitle(df)
+  plot_form <- as.formula(paste0("~ rt | factor(", v, ")"))
+  densityplot(plot_form, groups = factor(congruency), data = df, 
+              plot.points = FALSE, xlab = "RT", main = "Densities", 
+              sub = list(subtitle, cex = .7),
               auto.key = list(title = "condition", cex = 0.7, columns = 2, 
                               space = "top"), 
-              strip = strip.custom(strip.names = TRUE, 
-                                   var.name = c("tau1", "tau2"))
-  )
-}
-
-rt_denss_vary_A <- function(data) {
-  subtitle <- paste("for tau1 = tau2 =", data$tau1[1])
-  densityplot(~rt | factor(A1) * factor(A2), groups = factor(congruency), 
-              data = data, plot.points = FALSE, xlab = "RT", 
-              main = bquote(atop("Densities", .(subtitle))), 
-              auto.key = list(title = "condition", cex = 0.7, columns = 2, 
-                              space = "top"), 
-              strip = strip.custom(strip.names = TRUE, 
-                                   var.name = c("A1", "A2"))
+              strip = strip.custom(strip.names = TRUE, sep = " = ", 
+                                   var.name = label), 
+              layout = c(n_cols, n_rows)
   )
 }
