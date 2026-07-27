@@ -7,26 +7,27 @@ ui <- fluidPage(
     selectInput("automProcess1", "Type of first automatic process",  c("congruent", "incongruent")),
     selectInput("automProcess2", "Type of second automatic process", c("congruent", "incongruent")),
     sliderInput("mu_c",          "mu_c [drift rate controlled]",     0, 1, 0.5),
-    sliderInput("b",             "b [decision boundary]",            0, 100, 50),
-    sliderInput("sigma",         "sigma [SD Wiener process]",        0, 10, 4),
-    sliderInput("tau1",          "tau1 [scale parameter auto1]",     0, 250, 20), 
-    sliderInput("tau2",          "tau2 [scale parameter auto2]",     0, 250, 30),
-    sliderInput("A1",            "A1 [amplitude auto1]",             0, 50, 20),
-    sliderInput("A2",            "A2 [amplitude auto2]",             0, 50, 20),
+    sliderInput("b",             "b [decision boundary]",            0, 100, 60),
+    sliderInput("tau1",          "tau1 [scale parameter auto1]",     0, 250, 80), 
+    sliderInput("tau2",          "tau2 [scale parameter auto2]",     0, 250, 80),
+    sliderInput("A1",            "A1 [amplitude auto1]",             0, 50, 15),
+    sliderInput("A2",            "A2 [amplitude auto2]",             0, 50, 15),
+    sliderInput("ndt_m",         "mean ndt [non-decision time]",     0, 700, 330),
+    sliderInput("ndt_sd",        "sd of ndt [non-decision time]",    0, 100, 30),
     sliderInput("N",             "N [number of timepoints]",         5, 2000, 500),
     sliderInput("dt",            "dt [step size]",                   0.1, 1, 1),
-    sliderInput("ndt_m",         "mean ndt [non-decision time]",     0, 700, 300),
-    sliderInput("ndt_sd",        "sd of ndt [non-decision time]",    0, 100, 30),
-    sliderInput("nSim",          "nSim [number of simulations]",     300, 10000, 1000),
+    sliderInput("sigma",         "sigma [SD Wiener process]",        0, 10, 4),
+    sliderInput("nSim",          "nSim [number of simulations]",     300, 10000, 5000),
     checkboxInput("YlimFixed",   "keep plot y-axis constant at [-50, +50]", value = FALSE),
     actionButton("SimTrial",     "Simulate trial") 
   ),
   mainPanel(width = 5, wellPanel(plotOutput("AVplot"))),
-  mainPanel(width = 5, wellPanel(plotOutput("XPlot"))), 
   mainPanel(width = 5, wellPanel(plotOutput("MeanRTPlot"))),
-  mainPanel(width = 5, wellPanel(plotOutput("MeanERPlot"))),
   mainPanel(width = 5, wellPanel(plotOutput("DeltaPlot"))),
-  mainPanel(width = 5, wellPanel(plotOutput("DensityPlot")))
+  mainPanel(width = 5, wellPanel(plotOutput("DeltaPlotCond"))),
+  mainPanel(width = 5, wellPanel(plotOutput("MeanERPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("DensityPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("XPlot")))
 )
 
 server <- function(input, output, session) {
@@ -134,11 +135,10 @@ server <- function(input, output, session) {
     }
   })
   
-  # plot mean RTs
-  output$MeanRTPlot <- renderPlot({
-    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
-    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
-    Sim <- simDDMC(
+  # simulate data for nSim trials, recompute everytime input changes
+  # used in delta plots, meanRT, meanER, density plot
+  SimData <- reactive({
+    simDDMC(
       df = data.frame(
         mu_c   = input$mu_c,
         b      = input$b, 
@@ -149,10 +149,12 @@ server <- function(input, output, session) {
         dt     = input$dt, 
         sigma  = input$sigma,
         ndt_m  = input$ndt_m, 
-        ndt_sd = input$ndt_sd, 
-        auto1  = auto1, 
-        auto2  = auto2),
+        ndt_sd = input$ndt_sd), 
       input$nSim)
+  })
+  # plot mean RTs
+  output$MeanRTPlot <- renderPlot({
+    Sim <- SimData()
     
     s_dfrt <- aggregate(rt ~ auto1 + auto2, FUN = mean, data = Sim[Sim$dec == 1, ])
     s_dfrt$rt <- s_dfrt$rt
@@ -177,23 +179,7 @@ server <- function(input, output, session) {
   
   # plot mean ERs
   output$MeanERPlot <- renderPlot({
-    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
-    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
-    Sim <- simDDMC(
-      df = data.frame(
-        mu_c  = input$mu_c,
-        b     = input$b, 
-        A1    = input$A1,
-        A2    = input$A2, 
-        tau1  = input$tau1,
-        tau2  = input$tau2,
-        dt    = input$dt, 
-        sigma = input$sigma,
-        ndt_m  = input$ndt_m, 
-        ndt_sd = input$ndt_sd, 
-        auto1  = auto1, 
-        auto2  = auto2),
-      input$nSim)
+    Sim <- SimData()
 
     Sim$error <- ifelse(Sim$dec == -1, 1, 0)
     s_dfer <- aggregate(error ~ auto1 + auto2, FUN = mean, data = Sim)
@@ -213,74 +199,68 @@ server <- function(input, output, session) {
   })
   
   output$DeltaPlot <- renderPlot({
-    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
-    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
-    Sim <- simDDMC(
-      df = data.frame(
-        mu_c  = input$mu_c,
-        b     = input$b, 
-        A1    = input$A1,
-        A2    = input$A2, 
-        tau1  = input$tau1,
-        tau2  = input$tau2,
-        dt    = input$dt, 
-        sigma = input$sigma,
-        ndt_m  = input$ndt_m, 
-        ndt_sd = input$ndt_sd, 
-        auto1  = auto1, 
-        auto2  = auto2),
-      input$nSim)
+    Sim <- SimData()
     
-    d_cc <- Sim[Sim$auto1 == 1 & Sim$auto2 == 1, ]
-    d_ci <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
-    d_ic <- Sim[Sim$auto1 == -1 & Sim$auto2 == 1, ]
-    d_ii <- Sim[Sim$auto1 == -1 & Sim$auto2 == -1, ]
+    d_uc1 <- Sim[Sim$auto1 == 1, ]
+    d_ui1 <- Sim[Sim$auto1 == -1, ]
     
     probs <- seq(0.1, 0.9, by = 0.1)
     
-    q1 <- quantile(d_cc$rt, probs)
-    q2 <- quantile(d_ci$rt, probs)
-    q3 <- quantile(d_ic$rt, probs)
-    q4 <- quantile(d_ii$rt, probs)
+    q_uc1 <- quantile(d_uc1$rt, probs)
+    q_ui1 <- quantile(d_ui1$rt, probs)
     
-    delta1 <- q4 - q1
-    delta2 <- q4 - q2
-    delta3 <- q4 - q3
-    mean_rts <- (q1+q2+q3+q4) / 4
+    delta_u1 <- q_ui1 - q_uc1
+    mean_rts <- (q_uc1+q_ui1)/2
     
-    ymin <- min(delta1, delta2, delta3) - 20
-    ymax <- max(delta1, delta2, delta3) + 20
+    ymin <- min(delta_u1) - 20
+    ymax <- max(delta_u1) + 20
     xmin <- min(mean_rts) - 25
     xmax <- max(mean_rts) + 25 
     
-    plot(mean_rts, delta1, type = "n", pch = 16, 
+    plot(mean_rts, delta_u1, type = "b", pch = 16, 
+         xlim = c(xmin, xmax), ylim = c(ymin, ymax), col = "blue", 
+         xlab = "Mean RT (ms)", ylab = "delta", 
+         main = "Delta Plot Task 1 [across Task 2 congruency]")
+  })
+  
+  output$DeltaPlotCond <- renderPlot({
+    Sim <- SimData()
+    
+    d_1c2c <- Sim[Sim$auto1 == 1 & Sim$auto2 == 1, ]
+    d_1c2i <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
+    d_1i2c <- Sim[Sim$auto1 == -1 & Sim$auto2 == 1, ]
+    d_1i2i <- Sim[Sim$auto1 == -1 & Sim$auto2 == -1, ]
+    
+    probs <- seq(0.1, 0.9, by = 0.1)
+    
+    q_1c2c <- quantile(d_1c2c$rt, probs)
+    q_1c2i <- quantile(d_1c2i$rt, probs)
+    q_1i2c <- quantile(d_1i2c$rt, probs)
+    q_1i2i <- quantile(d_1i2i$rt, probs)
+    
+    
+    delta_2c <- q_1i2c - q_1c2c
+    delta_2i <- q_1i2i - q_1c2i
+    
+    mean_rts_2c <- (q_1i2c + q_1c2c) / 2
+    mean_rts_2i <- (q_1i2i + q_1c2i) / 2
+    
+    ymin <- min(delta_2c, delta_2i) - 20
+    ymax <- max(delta_2c, delta_2i) + 20
+    xmin <- min(mean_rts_2c, mean_rts_2i) - 25
+    xmax <- max(mean_rts_2c, mean_rts_2i) + 25 
+    
+    plot(mean_rts_2c, delta_2c, type = "n", pch = 16, 
          xlim = c(xmin, xmax), ylim = c(ymin, ymax), 
-         xlab = "Mean RT (ms)", ylab = "delta", main = "Delta Plot")
-    points(mean_rts, delta1, type = "b", col = "green")
-    points(mean_rts, delta2, type = "b", col = "blue")
-    points(mean_rts, delta3, type = "b", col = "red")
-    legend("topright", legend = c("ii-cc", "ii-ci", "ii-ic"),
-           col = c("green", "blue", "red"), lty = 1)
+         xlab = "Mean RT (ms)", ylab = "delta", main = "Delta Plot Task 1")
+    points(mean_rts_2c, delta_2c, type = "b", pch = 16, col = "blue")
+    points(mean_rts_2i, delta_2i, type = "b", pch = 16, col = "red")
+    legend("topright", title = "Task two", legend = c("congruent", "incongruent"), 
+           col = c("blue", "red"), lty = 1, pch = 16)
   })
   
   output$DensityPlot <- renderPlot({
-    auto1 <- ifelse(input$automProcess1 == "congruent", 1, -1)
-    auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
-    Sim <- simDDMC(
-      df = data.frame(
-        mu_c  = input$mu_c,
-        b     = input$b, 
-        A1    = input$A1,
-        A2    = input$A2, 
-        tau1  = input$tau1,
-        tau2  = input$tau2,
-        dt    = input$dt, 
-        sigma = input$sigma,
-        ndt_m  = input$ndt_m, 
-        ndt_sd = input$ndt_sd, 
-        auto1  = auto1, 
-        auto2  = auto2),
-      input$nSim)
+    Sim <- SimData()
     
     d_cc <- Sim[Sim$auto1 == 1 & Sim$auto2 == 1, ]
     d_ci <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
