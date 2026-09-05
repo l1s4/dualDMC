@@ -32,7 +32,8 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
-  rv <- reactiveValues(trials = list(), ap1 = list(), ap2 = list())     # to store simulated trials
+  # to store simulated trials
+  rv <- reactiveValues(trials = list(), ap1 = list(), ap2 = list())
   
   # change of parameter values
   observeEvent(input$change, {
@@ -135,7 +136,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # simulate data for nSim trials, recompute everytime input changes
+  # simulate data for nSim trials, recompute only if input changes
   # used in delta plots, meanRT, meanER, density plot
   SimData <- reactive({
     simDDMC(
@@ -152,29 +153,61 @@ server <- function(input, output, session) {
         ndt_sd = input$ndt_sd), 
       input$nSim)
   })
+  
   # plot mean RTs
   output$MeanRTPlot <- renderPlot({
     Sim <- SimData()
     
-    s_dfrt <- aggregate(rt ~ auto1 + auto2, FUN = mean, data = Sim[Sim$dec == 1, ])
-    s_dfrt$rt <- s_dfrt$rt
+    Sim <- Sim[Sim$dec != 0, ]      # exclude trials with no decisions
+    Sim$error <- ifelse(Sim$dec == 1, 0, 1)
     
+    s_dfrt <- aggregate(rt ~ auto1 + auto2 + error, FUN = mean, data = Sim)
+
     # reorder factor levels and add labels
     s_dfrt$auto1 <- factor(s_dfrt$auto1, levels = c(1, -1), 
                           labels = c("congruent", "incongruent"))
     s_dfrt$auto2 <- factor(s_dfrt$auto2, levels = c(1, -1), 
                           labels = c("congruent", "incongruent"))
 
-    ymin <- if (input$YlimFixed) 0 else min(s_dfrt$rt) - 200
-    ymax <- if (input$YlimFixed) 1000 else max(s_dfrt$rt) + 200
-      
-    interaction.plot(
-      x.factor = s_dfrt$auto1, trace.factor = s_dfrt$auto2, 
-      response = s_dfrt$rt, ylim = c(ymin, ymax), col = c("red", "blue"), 
-      xlab = "first dimension", trace.label = "second dimension", 
-      ylab = "mean RT [correct trials]", legend = T, 
-      main = "mean RT [correct trials] per condition"
-    )
+    ymin <- if (input$YlimFixed) 0 else min(s_dfrt$rt) - 100
+    ymax <- if (input$YlimFixed) 1000 else max(s_dfrt$rt) + 100
+    
+    rts_c <- s_dfrt[s_dfrt$error == 0, ]
+    rts_e <- s_dfrt[s_dfrt$error == 1, ]
+
+    c_cc <- rts_c[rts_c$auto1 == "congruent" & rts_c$auto2 == "congruent", ]
+    c_ci <- rts_c[rts_c$auto1 == "congruent" & rts_c$auto2 == "incongruent", ]
+    c_ic <- rts_c[rts_c$auto1 == "incongruent" & rts_c$auto2 == "congruent", ]
+    c_ii <- rts_c[rts_c$auto1 == "incongruent" & rts_c$auto2 == "incongruent", ]
+    e_cc <- rts_e[rts_e$auto1 == "congruent" & rts_e$auto2 == "congruent", ]
+    e_ci <- rts_e[rts_e$auto1 == "congruent" & rts_e$auto2 == "incongruent", ]
+    e_ic <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "congruent", ]
+    e_ii <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "incongruent", ]
+    
+    plot(c(0.5, 2.5), ylim = c(ymin, ymax), ylab = "second dimension", 
+         xlab = "First Dimension", xaxt = "n", main = "Mean RTs per Condition")
+    axis(1, at = c(1, 2), labels = c("Congruent", "Incongruent")) 
+    
+    if (nrow(c_cc) == 1 & nrow(c_ic) == 1) {
+      lines(1:2, c(c_cc$rt, c_ic$rt), col = "blue")
+      points(1:2, c(c_cc$rt, c_ic$rt), col = "blue", pch = 16)
+    }
+    if (nrow(c_ci) == 1 & nrow(c_ii) == 1) {
+      lines(1:2, c(c_ci$rt, c_ii$rt), col = "red")
+      points(1:2, c(c_ci$rt, c_ii$rt), col = "red", pch = 16)
+    }
+    if (nrow(e_cc) == 1 & nrow(e_ic) == 1) {
+      lines(1:2, c(e_cc$rt, e_ic$rt), col = "blue", lty = 2)
+      points(1:2, c(e_cc$rt, e_ic$rt), col = "blue", pch = 1)
+    }
+    if (nrow(e_ci) == 1 & nrow(e_ii) == 1) {
+      lines(1:2, c(e_ci$rt, e_ii$rt), col = "red", lty = 2)
+      points(1:2, c(e_ci$rt, e_ii$rt), col = "red", pch = 1)
+    }
+    
+    legend("topleft", legend = c("Congruent (correct)","Congruent (error)", 
+                                 "Incongruent (correct)","Incongruent (error)"), 
+           col = c("blue", "blue", "red", "red"), lty = c(1, 2, 1, 2))
   })
   
   # plot mean ERs
@@ -194,7 +227,7 @@ server <- function(input, output, session) {
       x.factor = s_dfer$auto1, trace.factor = s_dfer$auto2, 
       response = s_dfer$error, ylim = c(0, 1), col = c("red", "blue"), 
       xlab = "first dimension", trace.label = "second dimension", 
-      legend = T, ylab = "mean ER", main = "mean ER per condition"
+      legend = T, ylab = "mean ER", main = "mean ER", fun = identity
     )
   })
   
