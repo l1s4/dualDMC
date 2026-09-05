@@ -8,12 +8,19 @@ simulations/testing.R
 # temp files
 bayesflow/temp-functions.txt
 
-# .keras test objects
-bayesflow/TEST_HIERARCHICAL_GLOBAL.keras
-bayesflow/TEST_HIERARCHICAL_LOCAL.keras
-
 # pycache
 bayesflow/__pycache__/
 
 # pdfs
 simulations/out/plots/
+
+# RDM 
+simulations/dualRDMPatterns.R
+simulations/helpers_rdm.R
+src/dualRDM.cpp
+
+# data
+data/
+
+# ignore folder
+bayesflow/ignore/
