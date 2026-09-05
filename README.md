@@ -1,4 +1,4 @@
-# dualDMC (DDMC)
+# Dual-DMC (DDMC)
 
 Extension of the Diffusion Model for Conflict Tasks (DMC) for two sources of irrelevant information
 
@@ -15,21 +15,3 @@ Note: $a_1 = a_2 = 2$
 
 ## BayesFlow
 BayesFlow models were trained using the computational resource bwUniCluster funded by the Ministry of Science, Research and the Arts Baden-Württemberg and the Universities of the State of Baden-Württemberg, Germany, within the framework program bwHPC.
-
-
-### 
-- HDDMC1106: robust hiererchical DDMC
-    - 300 Epochs
-    - N_TRAINING_BATCHES = 256
-    - BATCH_SIZE = 64
-    - EPOCHS = 300
-    - N_LOCAL_SUBJECTS = 5
-    - N_TRIALS = 800 (?)
-- HDDMC500: robust hierarchical DDMC
-    - 500 Epochs
-    - N_TRAINING_BATCHES = 256
-    - BATCH_SIZE = 64
-    - EPOCHS = 500
-    - N_LOCAL_SUBJECTS = 6
-    - N_TRIALS = 200
-    
