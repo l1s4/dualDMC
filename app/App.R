@@ -26,6 +26,7 @@ ui <- fluidPage(
   mainPanel(width = 5, wellPanel(plotOutput("DeltaPlot"))),
   mainPanel(width = 5, wellPanel(plotOutput("DeltaPlotCond"))),
   mainPanel(width = 5, wellPanel(plotOutput("MeanERPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("CAFPlot"))),
   mainPanel(width = 5, wellPanel(plotOutput("DensityPlot"))),
   mainPanel(width = 5, wellPanel(plotOutput("XPlot")))
 )
@@ -96,9 +97,8 @@ server <- function(input, output, session) {
     cross_pb <- suppressWarnings(min(which(M$superimposed > input$b)))
     cross_mb <- suppressWarnings(min(which(M$superimposed < -input$b)))
 
-    plot(M$cont_traj[1:input$N],
-      type = "n", ylim = c(ymin, ymax),
-      ylab = "Mean Activation", xlab = "t [ms]"
+    plot(M$cont_traj[1:input$N], type = "n", ylim = c(ymin, ymax),
+      main = "Activation", ylab = "Mean Activation", xlab = "t [ms]"
     )
     abline(h = 0, lty = 3)
     abline(h = c(-input$b, input$b), lty = 2)
@@ -184,7 +184,7 @@ server <- function(input, output, session) {
     e_ic <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "congruent", ]
     e_ii <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "incongruent", ]
     
-    plot(c(0.5, 2.5), ylim = c(ymin, ymax), ylab = "second dimension", 
+    plot(c(0.5, 2.5), ylim = c(ymin, ymax), ylab = "Second Dimension", 
          xlab = "First Dimension", xaxt = "n", main = "Mean RTs per Condition")
     axis(1, at = c(1, 2), labels = c("Congruent", "Incongruent")) 
     
@@ -226,8 +226,8 @@ server <- function(input, output, session) {
     interaction.plot(
       x.factor = s_dfer$auto1, trace.factor = s_dfer$auto2, 
       response = s_dfer$error, ylim = c(0, 1), col = c("red", "blue"), 
-      xlab = "first dimension", trace.label = "second dimension", 
-      legend = T, ylab = "mean ER", main = "mean ER", fun = identity
+      xlab = "First Dimension", trace.label = "Second Dimension", 
+      legend = T, ylab = "Mean ER", main = "Mean ER", fun = identity
     )
   })
   
@@ -253,7 +253,7 @@ server <- function(input, output, session) {
     plot(mean_rts, delta_u1, type = "b", pch = 16, 
          xlim = c(xmin, xmax), ylim = c(ymin, ymax), col = "blue", 
          xlab = "Mean RT (ms)", ylab = "delta", 
-         main = "Delta Plot Task 1 [across Task 2 congruency]")
+         main = "Delta Plot Task 1 [Across Task 2 Congruency]")
   })
   
   output$DeltaPlotCond <- renderPlot({
@@ -290,6 +290,45 @@ server <- function(input, output, session) {
     points(mean_rts_2i, delta_2i, type = "b", pch = 16, col = "red")
     legend("topright", title = "Task two", legend = c("congruent", "incongruent"), 
            col = c("blue", "red"), lty = 1, pch = 16)
+  })
+  
+  output$CAFPlot <- renderPlot({
+    Sim <- SimData()
+    
+    Sim$error <- ifelse(Sim$dec == 1, 0, 1)
+    
+    a_cc <- Sim[Sim$auto1 == 1 & Sim$auto2 == 1, ]
+    a_ci <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
+    a_ic <- Sim[Sim$auto1 == -1 & Sim$auto2 == 1, ]
+    a_ii <- Sim[Sim$auto1 == -1 & Sim$auto2 == -1, ]
+    
+    caf_cc <- tapply(a_cc$error, 
+      cut(a_cc$rt, breaks = quantile(a_cc$rt, c(0, .25, .50, .75, 1)), 
+          include.lowest = TRUE), mean)
+    caf_ci <- tapply(a_ci$error, 
+      cut(a_ci$rt, breaks = quantile(a_ci$rt, c(0, .25, .50, .75, 1)), 
+          include.lowest = TRUE), mean)
+    caf_ic <- tapply(a_ic$error, 
+      cut(a_ic$rt, breaks = quantile(a_ic$rt, c(0, .25, .50, .75, 1)), 
+          include.lowest = TRUE), mean)
+    caf_ii <- tapply(a_ii$error, 
+      cut(a_ii$rt, breaks = quantile(a_ii$rt, c(0, .25, .50, .75, 1)), 
+          include.lowest = TRUE), mean)
+    
+    plot(1:4, 1-caf_cc, type = "n", ylim = c(0, 1), main = "CAFs", 
+         ylab = "Accuracy", xlab = "Bin")
+    lines(1-caf_cc, col = "green")
+    points(1-caf_cc, col = "green", pch = 16)
+    lines(1-caf_ci, col = "blue")
+    points(1-caf_ci, col = "blue", pch = 16)
+    lines(1-caf_ic, col = "orange")
+    points(1-caf_ic, col = "orange", pch = 16)
+    lines(1-caf_ii, col = "red")
+    points(1-caf_ii, col = "red", pch = 16)
+    
+    legend("bottomright", title = "Condition", legend = c("cc", "ci", "ic", "ii"), 
+           col = c("green", "blue", "orange", "red"), lty = 1)
+    
   })
   
   output$DensityPlot <- renderPlot({
