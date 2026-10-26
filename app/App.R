@@ -18,15 +18,15 @@ ui <- fluidPage(
     sliderInput("dt",            "dt [step size]",                   0.1, 1, 1),
     sliderInput("sigma",         "sigma [SD Wiener process]",        0, 10, 4),
     sliderInput("nSim",          "nSim [number of simulations]",     300, 10000, 5000),
-    checkboxInput("YlimFixed",   "keep plot y-axis constant at [-50, +50]", value = FALSE),
+    checkboxInput("errorRTs",   "show error RTs", value = FALSE),
     actionButton("SimTrial",     "Simulate trial") 
   ),
   mainPanel(width = 5, wellPanel(plotOutput("AVplot"))),
   mainPanel(width = 5, wellPanel(plotOutput("MeanRTPlot"))),
-  mainPanel(width = 5, wellPanel(plotOutput("DeltaPlot"))),
-  mainPanel(width = 5, wellPanel(plotOutput("DeltaPlotCond"))),
   mainPanel(width = 5, wellPanel(plotOutput("MeanERPlot"))),
   mainPanel(width = 5, wellPanel(plotOutput("CAFPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("DeltaPlot"))),
+  mainPanel(width = 5, wellPanel(plotOutput("DeltaPlotCond"))),
   mainPanel(width = 5, wellPanel(plotOutput("DensityPlot"))),
   mainPanel(width = 5, wellPanel(plotOutput("XPlot")))
 )
@@ -91,8 +91,8 @@ server <- function(input, output, session) {
       auto2 <- ifelse(input$automProcess2 == "congruent", 1, -1)
     )
     
-    ymin <- if (input$YlimFixed) -50 else -input$b - 10 
-    ymax <- if (input$YlimFixed) +50 else input$b + 10 
+    ymin <- -input$b - 10 
+    ymax <- input$b + 10 
 
     cross_pb <- suppressWarnings(min(which(M$superimposed > input$b)))
     cross_mb <- suppressWarnings(min(which(M$superimposed < -input$b)))
@@ -105,36 +105,14 @@ server <- function(input, output, session) {
     lines(M$cont_traj[1:input$N], col = "black")
     lines(M$auto1_traj[1:input$N], col = "green")
     lines(M$auto2_traj[1:input$N], col = "blue")
-    lines(M$super_traj[1:input$N], col = "red")
+    lines(M$super_traj[1:input$N], col = "red", lwd = 2)
     legend("bottomright",
       col = c("black", "green", "blue", "red"), lty = 1,
-      legend = c("controlled", "automatic 1", "automatic 2", "superimposed")
+      legend = c("Controlled", "Automatic 1", "Automatic 2", "Superimposed")
     )
   })
   
-  # plot simulated trials
-  output$XPlot <- renderPlot({
-    ymin <- if (input$YlimFixed) -50 else -input$b - 20
-    ymax <- if (input$YlimFixed) +50 else input$b + 20
 
-    plot(isolate(rv[['trial_1']]), type = "n", ylab = "X(t)", xlab = "t [ms]", 
-         ylim = c(ymin, ymax), xlim = c(0, input$N)) 
-    abline(h = c(-input$b, input$b), col = "black", lty = 2)
-
-
-    for (trial_id in names(rv$trials)) {
-      trial <- rv$trials[[trial_id]]
-
-      # check which boundary was crossed first and set line color
-      cross_pb <- which(trial > input$b)
-      cross_mb <- which(trial < -input$b)
-      pb <- suppressWarnings(min(cross_pb))
-      pm <- suppressWarnings(min(cross_mb))
-      if (pb < pm) line_col <- "green" else line_col <- "red"
-
-      lines(trial, col = line_col)
-    }
-  })
   
   # simulate data for nSim trials, recompute only if input changes
   # used in delta plots, meanRT, meanER, density plot
@@ -154,10 +132,8 @@ server <- function(input, output, session) {
       input$nSim)
   })
   
-  # plot mean RTs
   output$MeanRTPlot <- renderPlot({
     Sim <- SimData()
-    
     Sim <- Sim[Sim$dec != 0, ]      # exclude trials with no decisions
     Sim$error <- ifelse(Sim$dec == 1, 0, 1)
     
@@ -169,8 +145,8 @@ server <- function(input, output, session) {
     s_dfrt$auto2 <- factor(s_dfrt$auto2, levels = c(1, -1), 
                           labels = c("congruent", "incongruent"))
 
-    ymin <- if (input$YlimFixed) 0 else min(s_dfrt$rt) - 100
-    ymax <- if (input$YlimFixed) 1000 else max(s_dfrt$rt) + 100
+    ymin <- min(s_dfrt$rt) - 100
+    ymax <- max(s_dfrt$rt) + 100
     
     rts_c <- s_dfrt[s_dfrt$error == 0, ]
     rts_e <- s_dfrt[s_dfrt$error == 1, ]
@@ -179,13 +155,9 @@ server <- function(input, output, session) {
     c_ci <- rts_c[rts_c$auto1 == "congruent" & rts_c$auto2 == "incongruent", ]
     c_ic <- rts_c[rts_c$auto1 == "incongruent" & rts_c$auto2 == "congruent", ]
     c_ii <- rts_c[rts_c$auto1 == "incongruent" & rts_c$auto2 == "incongruent", ]
-    e_cc <- rts_e[rts_e$auto1 == "congruent" & rts_e$auto2 == "congruent", ]
-    e_ci <- rts_e[rts_e$auto1 == "congruent" & rts_e$auto2 == "incongruent", ]
-    e_ic <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "congruent", ]
-    e_ii <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "incongruent", ]
-    
+
     plot(c(0.5, 2.5), ylim = c(ymin, ymax), ylab = "Second Dimension", 
-         xlab = "First Dimension", xaxt = "n", main = "Mean RTs per Condition")
+         xlab = "First Dimension", xaxt = "n", main = "Mean RTs")
     axis(1, at = c(1, 2), labels = c("Congruent", "Incongruent")) 
     
     if (nrow(c_cc) == 1 & nrow(c_ic) == 1) {
@@ -196,25 +168,36 @@ server <- function(input, output, session) {
       lines(1:2, c(c_ci$rt, c_ii$rt), col = "red")
       points(1:2, c(c_ci$rt, c_ii$rt), col = "red", pch = 16)
     }
-    if (nrow(e_cc) == 1 & nrow(e_ic) == 1) {
-      lines(1:2, c(e_cc$rt, e_ic$rt), col = "blue", lty = 2)
-      points(1:2, c(e_cc$rt, e_ic$rt), col = "blue", pch = 1)
-    }
-    if (nrow(e_ci) == 1 & nrow(e_ii) == 1) {
-      lines(1:2, c(e_ci$rt, e_ii$rt), col = "red", lty = 2)
-      points(1:2, c(e_ci$rt, e_ii$rt), col = "red", pch = 1)
-    }
     
-    legend("topleft", legend = c("Congruent (correct)","Congruent (error)", 
-                                 "Incongruent (correct)","Incongruent (error)"), 
-           col = c("blue", "blue", "red", "red"), lty = c(1, 2, 1, 2))
+    if (input$errorRTs) {
+      e_cc <- rts_e[rts_e$auto1 == "congruent" & rts_e$auto2 == "congruent", ]
+      e_ci <- rts_e[rts_e$auto1 == "congruent" & rts_e$auto2 == "incongruent", ]
+      e_ic <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "congruent", ]
+      e_ii <- rts_e[rts_e$auto1 == "incongruent" & rts_e$auto2 == "incongruent", ]
+      if (nrow(e_cc) == 1 & nrow(e_ic) == 1) {
+        lines(1:2, c(e_cc$rt, e_ic$rt), col = "blue", lty = 2)
+        points(1:2, c(e_cc$rt, e_ic$rt), col = "blue", pch = 1)
+      }
+      if (nrow(e_ci) == 1 & nrow(e_ii) == 1) {
+        lines(1:2, c(e_ci$rt, e_ii$rt), col = "red", lty = 2)
+        points(1:2, c(e_ci$rt, e_ii$rt), col = "red", pch = 1)
+      }
+      legend("topleft", 
+             legend = c("Congruent (correct)","Congruent (error)", 
+                        "Incongruent (correct)","Incongruent (error)"), 
+             col = c("blue", "blue", "red", "red"), lty = c(1, 2, 1, 2))
+    } else {
+      legend("topleft", legend = c("Congruent","Incongruent"), 
+             col = c("blue", "red"), lty = 1) 
+      
+    }
   })
   
-  # plot mean ERs
   output$MeanERPlot <- renderPlot({
     Sim <- SimData()
+    Sim <- Sim[Sim$dec != 0, ]      # exclude trials with no decisions
+    Sim$error <- ifelse(Sim$dec == 1, 0, 1)
 
-    Sim$error <- ifelse(Sim$dec == -1, 1, 0)
     s_dfer <- aggregate(error ~ auto1 + auto2, FUN = mean, data = Sim)
     
     # reorder factor levels and add labels
@@ -229,10 +212,12 @@ server <- function(input, output, session) {
       xlab = "First Dimension", trace.label = "Second Dimension", 
       legend = T, ylab = "Mean ER", main = "Mean ER", fun = identity
     )
+    abline(h = 0.15, lty = 3)
   })
   
   output$DeltaPlot <- renderPlot({
     Sim <- SimData()
+    Sim <- Sim[Sim$dec == 1, ]      # exclude no-decision and error trials
     
     d_uc1 <- Sim[Sim$auto1 == 1, ]
     d_ui1 <- Sim[Sim$auto1 == -1, ]
@@ -252,12 +237,13 @@ server <- function(input, output, session) {
     
     plot(mean_rts, delta_u1, type = "b", pch = 16, 
          xlim = c(xmin, xmax), ylim = c(ymin, ymax), col = "blue", 
-         xlab = "Mean RT (ms)", ylab = "delta", 
+         xlab = "Mean RT (ms)", ylab = "Delta", 
          main = "Delta Plot Task 1 [Across Task 2 Congruency]")
   })
   
   output$DeltaPlotCond <- renderPlot({
     Sim <- SimData()
+    Sim <- Sim[Sim$dec == 1, ]      # exclude no-decision and error trials
     
     d_1c2c <- Sim[Sim$auto1 == 1 & Sim$auto2 == 1, ]
     d_1c2i <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
@@ -270,7 +256,6 @@ server <- function(input, output, session) {
     q_1c2i <- quantile(d_1c2i$rt, probs)
     q_1i2c <- quantile(d_1i2c$rt, probs)
     q_1i2i <- quantile(d_1i2i$rt, probs)
-    
     
     delta_2c <- q_1i2c - q_1c2c
     delta_2i <- q_1i2i - q_1c2i
@@ -285,10 +270,10 @@ server <- function(input, output, session) {
     
     plot(mean_rts_2c, delta_2c, type = "n", pch = 16, 
          xlim = c(xmin, xmax), ylim = c(ymin, ymax), 
-         xlab = "Mean RT (ms)", ylab = "delta", main = "Delta Plot Task 1")
+         xlab = "Mean RT (ms)", ylab = "Delta", main = "Delta Plot Task 1")
     points(mean_rts_2c, delta_2c, type = "b", pch = 16, col = "blue")
     points(mean_rts_2i, delta_2i, type = "b", pch = 16, col = "red")
-    legend("topright", title = "Task two", legend = c("congruent", "incongruent"), 
+    legend("topright", title = "Task Two", legend = c("Congruent", "Incongruent"), 
            col = c("blue", "red"), lty = 1, pch = 16)
   })
   
@@ -326,7 +311,7 @@ server <- function(input, output, session) {
     lines(1-caf_ii, col = "red")
     points(1-caf_ii, col = "red", pch = 16)
     
-    legend("bottomright", title = "Condition", legend = c("cc", "ci", "ic", "ii"), 
+    legend("bottomright", title = "Condition", legend = c("CC", "CI", "IC", "II"), 
            col = c("green", "blue", "orange", "red"), lty = 1)
     
   })
@@ -344,9 +329,32 @@ server <- function(input, output, session) {
     lines(density(d_ci$rt), col = "blue")
     lines(density(d_ic$rt), col = "orange")
     lines(density(d_ii$rt), col = "red")
-    legend("topright", title = "Condition", legend = c("cc", "ci", "ic", "ii"), 
+    legend("topright", title = "Condition", legend = c("CC", "CI", "IC", "II"), 
            col = c("green", "blue", "orange", "red"), lty = 1)
   })
+  
+  output$XPlot <- renderPlot({  # plot simulated trials
+    ymin <- -input$b - 20
+    ymax <- input$b + 20
+    
+    plot(isolate(rv[['trial_1']]), type = "n", ylab = "X(t)", xlab = "t [ms]", 
+         ylim = c(ymin, ymax), xlim = c(0, input$N)) 
+    abline(h = c(-input$b, input$b), col = "black", lty = 2)
+    
+    for (trial_id in names(rv$trials)) {
+      trial <- rv$trials[[trial_id]]
+      
+      # check which boundary was crossed first and set line color
+      cross_pb <- which(trial > input$b)
+      cross_mb <- which(trial < -input$b)
+      pb <- suppressWarnings(min(cross_pb))
+      pm <- suppressWarnings(min(cross_mb))
+      if (pb < pm) line_col <- "green" else line_col <- "red"
+      
+      lines(trial, col = line_col)
+    }
+  })
+  
 }
 
 shinyApp(ui, server)

@@ -1,0 +1,349 @@
+---
+title: "DDMC_Patterns"
+output: pdf_document
+---
+
+```{r}
+library(lattice)
+library(latticeExtra)
+library(ggplot2)
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(Rcpp)
+source('helpers.R')
+Rcpp::sourceCpp('../src/dualDMC.cpp')
+```
+
+## Load all simulated datasets
+```{r}
+dat1 <- get(load("out/data/datDDMC1.RData"))
+dat2 <- get(load("out/data/datDDMC2.RData"))
+dat3 <- get(load("out/data/datDDMC3.RData"))
+dat4 <- get(load("out/data/datDDMC4.RData"))
+dat5 <- get(load("out/data/datDDMC5.RData"))
+dat6 <- get(load("out/data/datDDMC6.RData"))
+
+dat1$simulation <- 1
+dat2$simulation <- 2
+dat3$simulation <- 3
+dat4$simulation <- 4
+dat5$simulation <- 5
+dat6$simulation <- 6
+
+datAll <- rbind(dat1, dat2, dat3, dat4, dat5, dat6)
+datAll <- mk_congruency(datAll)
+datAll$congruency <- as.factor(datAll$congruency)
+datAll$error <- ifelse(datAll$dec == 1, 0, 1)
+```
+
+## Helper Function(s)
+```{r}
+check_ceff <- function(dat, A1, A2, tau1, tau2) {
+  df <- dat[
+    dat$A1 == A1 & dat$A2 == A2 & dat$tau1 == tau1 & dat$tau2 == tau2 & 
+      dat$dec == 1, ]
+  
+  meanrts <- aggregate(rt ~ congruency, FUN = mean, df)$rt
+  ceff1 <- meanrts[2] - meanrts[1]
+  ceff2 <- meanrts[4] - meanrts[3]
+  diff_diffs <- ceff1 - ceff2
+#  print(paste(
+#    "A1 =", A1, "A2 =", A2, "tau1 =", tau1, "tau2 =", tau2, ":", 
+#    "Diff (ci-cc) - (ii-ic) =", diff_diffs))
+  return(diff_diffs)
+}
+```
+
+## Simulate data
+```{r}
+# varying parameters
+tau1_vals <- seq(30, 230, 50)
+tau2_vals <- seq(30, 230, 50)
+A1_vals <- seq(10, 25, 5)
+A2_vals <- seq(10, 25, 5)
+
+param_grid <- expand.grid(tau1 = tau1_vals, tau2 = tau2_vals, 
+                          A1 = A1_vals, A2 = A2_vals)
+
+# constant parameters
+param_grid$a1     <- 2
+param_grid$a2     <- 2
+param_grid$b      <- 60#50#70
+param_grid$sigma  <- 4 
+param_grid$dt     <- 0.01
+param_grid$mu_c   <- 0.6#0.5
+param_grid$ndt_m  <- 330
+param_grid$ndt_sd <- 30
+
+
+
+N_sim <- 5000		# number of simulations per parameter set
+#datDDMC <- simDDMC(param_grid, N_sim)                # simulate
+save(datDDMC, file = "out/data/datDDMCx.RData")      # save data
+```
+
+## Descriptive
+```{r}
+sim_nr <- 6   # select simulation
+dat <- datAll[datAll$simulation == sim_nr, ]
+
+### Get parameter sets with ERs > 15 % in any condition
+tmp <- aggregate(error ~ A1 + A2 + tau1 + tau2 + congruency, dat, mean)
+#tmp[tmp$congruency == "incongruent_incongruent" & tmp$error * 100 > 15, ] |> print()
+tmp[tmp$error > 0.15, ] |> nrow() |> print()
+tmp[tmp$error > 0.15, ] |> print()
+
+
+#tmp[tmp$tau1 == 30 & tmp$tau2 == 30 & tmp$A1 == 20 & tmp$A2 == 20, ]
+#tmp[tmp$tau1 == 30 & tmp$tau2 == 30 & tmp$A1 == 15 & tmp$A2 == 15, ]
+
+
+### Get parameter sets with ERs > 15 % 
+tmp <- aggregate(error ~ A1 + A2 + tau1 + tau2, dat, mean)
+tmp[tmp$error > 0.15, ]
+
+
+# RT
+mean(dat$rt) |> round(2)
+sd(dat$rt) |> round(2)
+aggregate(rt ~ error, data = dat, FUN = mean) |> round(2)
+aggregate(rt ~ error, data = dat, FUN = sd) |> round(2)
+
+
+tmp <- aggregate(rt ~ error + tau1 + tau2 + A1 + A2, data = dat, FUN = mean) |> round(2)
+
+tmp_0 <- tmp[tmp$error == 0, ]
+tmp_1 <- tmp[tmp$error == 1, ]
+which(tmp_0$rt < tmp_1$rt)
+tmp_0[which(tmp_0$rt < tmp_1$rt), ]
+
+
+mean(dat$error) * 100 # ER
+sd(dat$error) *100    # ER
+
+# per congruency condition
+aggregate(cbind(rt, error) ~ congruency, data = dat, FUN = mean)
+aggregate(cbind(rt, error) ~ congruency, data = dat, FUN = mean)$error * 100
+aggregate(cbind(rt, error) ~ congruency, data = dat, FUN = sd)
+aggregate(cbind(rt, error) ~ congruency, data = dat, FUN = sd)$error * 100
+
+aggregate(rt ~ congruency + error, dat, mean)
+
+```
+
+## Heatmaps
+```{r}
+sim_nr <- 1   # select simulation
+dat_nr <- "_1"    # set plot suffix
+dat <- datDDMC[datDDMC$simulation == sim_nr, ]
+
+
+param_grid <- expand.grid(
+  tau1 = unique(dat$tau1), tau2 = unique(dat$tau2), 
+  A1 = unique(dat$A1), A2 = unique(dat$A2)
+)
+
+
+param_grid$diffs <- NA
+for (i in 1:nrow(param_grid)) {
+  print(paste("processing set :", i))
+  param_grid[i, ]$diffs <- check_ceff(dat, param_grid[i,]$A1, param_grid[i,]$A2, 
+                                 param_grid[i,]$tau1, param_grid[i,]$tau2)
+}
+
+summary(param_grid$diffs)
+sd(param_grid$diffs)
+min(param_grid$diffs)
+max(param_grid$diffs)
+
+# Plot heatmaps for differences, vary As
+plot_df <- param_grid %>%
+  filter(tau1 == tau2)
+
+pdf(paste0("../../script/images/heatmaps_varyAs", dat_nr, ".pdf"), 6, 4)
+ggplot(plot_df, aes(x = factor(A2), y = factor(A1), fill = diffs)) +
+  geom_tile(color = "white") + theme_minimal() + 
+  facet_wrap(~ tau1, 
+             labeller = label_bquote(paste(tau[1], " = ", tau[2], " = ", .(tau1)))) + 
+  labs(x = expression(A[2]), y = expression(A[1])) +
+  scale_fill_gradient2(low = "blue", mid = "white",high = "orange", 
+                       midpoint = 0, limits = c(-75, 75), name = "D")
+dev.off()
+
+# Plot heatmaps for differences, vary taus
+plot_df <- param_grid %>%
+  filter(A1 == A2)
+
+pdf(paste0("../../script/images/heatmaps_varyTaus", dat_nr, ".pdf"), 6, 4)
+ggplot(plot_df, aes(x = factor(tau2), y = factor(tau1), fill = diffs)) +
+  geom_tile(color = "white") + theme_minimal() + 
+  facet_wrap(~ A1, 
+             labeller = label_bquote(paste(A[1], " = ", A[2], " = ", .(A1)))) + 
+  labs(x = expression(tau[2]), y = expression(tau[1])) +
+  scale_fill_gradient2(low = "blue", mid = "white",high = "orange", 
+                       midpoint = 0, limits = c(-75, 75), name = "D")
+dev.off()
+```
+
+## Plots vary all A1 x A2 / tau1 x tau2
+```{r}
+sim_nr = 1
+dat_nr <- "_1"    # set plot suffix
+datDDMC <- datAll[datAll$simulation == sim_nr, ]
+
+min(datDDMC$rt)
+max(datDDMC$rt)
+## Exclusions: rt < 200ms & rt > 1500ms
+#datDDMC <- datDDMC[datDDMC$rt > 200 & datDDMC$rt < 1500, ]
+
+# get parameter sets with A1 == A2
+df_As_eq <- datDDMC[datDDMC$A1 == datDDMC$A2, ]
+df_As_eq <- mk_congruency(df_As_eq)   # add congruency column
+df_As_lst <- split(df_As_eq, df_As_eq$A1)
+# get parameter sets with tau1 == tau2
+df_taus_eq <- datDDMC[datDDMC$tau1 == datDDMC$tau2, ]
+df_taus_eq <- mk_congruency(df_taus_eq)   # add congruency column
+df_taus_lst <- split(df_taus_eq, df_taus_eq$tau1)
+
+test <- df_As_lst[[1]]
+test <- test[test$tau1 != 30, ]
+plt_means(test, "tau1", "tau2", type = "RT")
+
+# Mean RTs
+pdf(paste0("out/plots/rt/RT_vary_taus", dat_nr, ".pdf"))
+lapply(df_As_lst, plt_means, v1 = "tau1", v2 = "tau2", type = "RT")
+dev.off()
+pdf(paste0("out/plots/rt/RT_vary_As", dat_nr, ".pdf"))
+lapply(df_taus_lst, plt_means, v1 = "A1", v2 = "A2", type = "RT")
+dev.off()
+
+# Mean ERs
+pdf(paste0("out/plots/er/ER_vary_taus", dat_nr, ".pdf"))
+lapply(df_As_lst, plt_means, v1 = "tau1", v2 = "tau2", type = "ER")
+dev.off()
+pdf(paste0("out/plots/er/ER_vary_As", dat_nr, ".pdf"))
+lapply(df_taus_lst, plt_means, v1 = "A1", v2 = "A2", type = "ER")
+dev.off()
+
+# CAFs
+pdf(paste0("out/plots/caf/CAF_vary_taus", dat_nr, ".pdf"))
+lapply(df_As_lst, plt_cafs, n_bins = 4, "tau1", "tau2")
+dev.off()
+pdf(paste0("out/plots/caf/CAF_vary_As", dat_nr, ".pdf"))
+lapply(df_taus_lst, plt_cafs, n_bins = 4, "A1", "A2")
+dev.off()
+
+# Delta plots
+pdf(paste0("out/plots/delta/delta_vary_taus", dat_nr, ".pdf"))
+lapply(df_As_lst, plt_delta, "tau1", "tau2")
+dev.off()
+pdf(paste0("out/plots/delta/delta_vary_As", dat_nr, ".pdf")) 
+lapply(df_taus_lst, plt_delta, "A1", "A2")
+dev.off()
+
+pdf(paste0("out/plots/delta/delta_vary_taus_cond", dat_nr, ".pdf"))
+lapply(df_As_lst, plt_delta, "tau1", "tau2", TRUE)
+dev.off()
+pdf(paste0("out/plots/delta/delta_vary_As_cond", dat_nr, ".pdf")) 
+lapply(df_taus_lst, plt_delta, "A1", "A2", TRUE)
+dev.off()
+```
+
+## OK parameter sets
+```{r}
+dat <- datAll
+
+param_sets <- expand.grid(
+  b = unique(datAll$b), mu_c = unique(datAll$mu_c), 
+  A1 = unique(datAll$A1), A2 = unique(datAll$A2), 
+  tau1 = unique(datAll$tau1), tau2 = unique(datAll$tau2)
+)
+
+# mean ERs, RTs per parameter set & congruency
+ers_rts <- aggregate(
+  cbind(error, rt) ~ A1 + A2 + tau1 + tau2 + b + mu_c + congruency, dat, mean
+)
+caf_data <- dat %>% 
+  group_by(A1, A2, tau1, tau2, mu_c, b, congruency) %>% 
+  mutate(rt_bin = ntile(rt, 5)) %>%
+  group_by(A1, A2, tau1, tau2, mu_c, b, congruency, rt_bin) %>% 
+  summarise(mean_acc = mean(1-error), mean_rt = mean(rt), .groups = "drop")
+
+# add mean ER and first bin accuracy in i-i
+param_sets <- param_sets %>% 
+  left_join(
+    ers_rts %>% 
+      filter(congruency == "incongruent_incongruent") %>% 
+      select(A1, A2, tau1, tau2, b, mu_c, error_ii = error), 
+    by = c("A1", "A2", "tau1", "tau2", "b", "mu_c")
+  ) %>% 
+  left_join(
+    caf_data %>% 
+      filter(congruency == "incongruent_incongruent", rt_bin == 1) %>% 
+      select(A1, A2, tau1, tau2, b, mu_c, mean_acc_bin1_ii = mean_acc), 
+    by = c("A1", "A2", "tau1", "tau2", "b", "mu_c")
+  )
+head(param_sets)
+
+param_sets |> sort_by(~ list(-mean_acc_bin1_ii)) # sort highest first bin acc
+param_sets |> sort_by(~ list(mean_acc_bin1_ii))  # sort lowest first bin acc
+
+# select OK parameter sets  
+param_sets_OK <- param_sets[
+  param_sets$error_ii < 0.15 & param_sets$mean_acc_bin1_ii > 0.6, 
+]
+str(param_sets_OK)
+
+# D score
+param_sets_OK$diffs <- NA
+for (i in 1:nrow(param_sets_OK)) {
+  print(paste("processing set :", i))
+  param_sets_OK[i, ]$diffs <- check_ceff(
+    dat, param_sets_OK[i,]$A1, param_sets_OK[i,]$A2, 
+    param_sets_OK[i,]$tau1, param_sets_OK[i,]$tau2
+  )
+}
+save(param_sets_OK, file = "out/data/param_sets_OK.RData")
+```
+
+### check OK parameter sets
+```{r}
+dat <- get(load("out/data/param_sets_OK.RData"))
+nrow(dat)
+summary(dat$diffs)
+hist(dat$diffs)
+
+# UA/OA patterns
+dat_UA <- dat[dat$diffs > 0, ]
+dat_OA <- dat[dat$diffs < -0, ]
+nrow(dat_UA)
+nrow(dat_OA)
+nrow(param_sets_OK) - nrow(dat_UA) - nrow(dat_OA)
+
+
+
+
+# Plot heatmaps for differences, vary taus
+plot_df_1 <- dat[dat$A1 == dat$A2 & dat$mu_c == 0.6 & dat$b == 60, ]
+plot_df_2 <- dat[dat$A1 == dat$A2 & dat$mu_c == 0.5 & dat$b == 60, ]
+plot_df_3 <- dat[dat$A1 == dat$A2 & dat$mu_c == 0.6 & dat$b == 70, ]
+plot_df_4 <- dat[dat$A1 == dat$A2 & dat$mu_c == 0.5 & dat$b == 70, ]
+plot_df_5 <- dat[dat$A1 == dat$A2 & dat$mu_c == 0.6 & dat$b == 50, ]
+plot_df_6 <- dat[dat$A1 == dat$A2 & dat$mu_c == 0.5 & dat$b == 50, ]
+
+plot_df_taus <- function(plot_df) {
+  ggplot(plot_df, aes(x = factor(tau2), y = factor(tau1), fill = diffs)) +
+    geom_tile(color = "white") + theme_minimal() + 
+    facet_wrap(~ A1, 
+               labeller = label_bquote(paste(A[1], " = ", A[2], " = ", .(A1)))) + 
+    labs(x = expression(tau[2]), y = expression(tau[1])) +
+    scale_fill_gradient2(low = "blue", mid = "white",high = "orange", 
+                         midpoint = 0, limits = c(-75, 75), name = "D")
+}
+
+plot_dfs <- list(plot_df_1, plot_df_2, plot_df_3, plot_df_4, plot_df_5, plot_df_6)
+pdf("../../script/images/heatmaps_varyTaus_OK.pdf", 6, 4)
+lapply(plot_dfs, plot_df_taus)
+dev.off()
+```

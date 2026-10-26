@@ -14,11 +14,6 @@ bayesflow/__pycache__/
 # pdfs
 simulations/out/plots/
 
-# RDM 
-simulations/dualRDMPatterns.R
-simulations/helpers_rdm.R
-src/dualRDM.cpp
-
 # data
 data/
 
