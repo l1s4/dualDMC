@@ -11,7 +11,3 @@ $\tau_1$: scale parameter gamma function first automatic process \
 $\tau_2$: scale parameter gamma function second automatic process \
 $\sigma$: diffusion constant superimposed process \
 Note: $a_1 = a_2 = 2$
-
-
-## BayesFlow
-BayesFlow models were trained using the computational resource bwUniCluster funded by the Ministry of Science, Research and the Arts Baden-Württemberg and the Universities of the State of Baden-Württemberg, Germany, within the framework program bwHPC.

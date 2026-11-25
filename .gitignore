@@ -5,17 +5,5 @@
 # R test file
 simulations/testing.R
 
-# temp files
-bayesflow/temp-functions.txt
-
-# pycache
-bayesflow/__pycache__/
-
-# pdfs
+# plot pdfs
 simulations/out/plots/
-
-# data
-data/
-
-# ignore folder
-bayesflow/ignore/
