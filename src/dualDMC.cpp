@@ -4,20 +4,20 @@
 Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2, 
     double dt, double sigma, double ndt_m, double ndt_sd, int auto1, int auto2) {
         /**
-         @brief Simulate a single trial of dualDMC (DDMC). Note: assuming a1 = a2 = 2
-         @param mu_c drift rate of controlled process
-         @param b boundary / threshold 
-         @param A1, A2 amplitudes of automatic activations
-         @param tau1, tau2 timepoint of max automatic activations 
+         @brief Simulate a single trial of Dual-DMC (DDMC) with a1 = a2 = 2
+         @param mu_c drift rate of the controlled process
+         @param b boundary / threshold (-b is the lower boundary)
+         @param A1, A2 amplitudes of the automatic activations
+         @param tau1, tau2 timepoint of the max automatic activations 
          @param dt time discretization
-         @param sigma diffusion constant of superimposed process
+         @param sigma diffusion constant of the superimposed process
          @param ndt mean non decision time
          @param ndt_sd sd of non decision time
          @param auto1, auto2 type of automatic process (1 = congruent, -1 = incongruent)
          @return reaction time rt (ms) and decision of trial (1 = correct, -1 = incorrect)
          */
 
-        double t = dt;
+        double t = 0;
         double X = 0.0; 
         int dec = 0;                    // decision
         double t_max = 7000;            // set max time for safety
@@ -27,8 +27,10 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
         const double e = exp(1.0);
         const double sqrt_dt = sqrt(dt); 
         
-        // with a1 = a2 = 2
         while (X > -b && X < b && t <= t_max) {
+            
+            t += dt;     // increase time
+            
             // drifts of automatic processes
             double mu_a1 = auto1 * A1 * exp(-t / tau1) * (e / tau1) * (1 - t / tau1); 
             double mu_a2 = auto2 * A2 * exp(-t / tau2) * (e / tau2) * (1 - t / tau2); 
@@ -38,12 +40,11 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
             double dX = mu_t * dt + sigma * sqrt_dt * R::rnorm(0.0, 1.0);
 
             X += dX;     // X(t)
-            t += dt;     // increase time
-            x_traj.push_back(X);
+            x_traj.push_back(X); 
         }
 
-        if (X <= -b){dec = -1;}     // hit -b first (i.e. incorrect response)
-        else if (X >= b){dec = 1;}       // hit b first (i.e. correct response)
+        if (X <= -b){dec = -1;}     // hit -b first (incorrect response)
+        else if (X >= b){dec = 1;}  // hit b first (correct response)
         else {dec = 0; Rcpp::Rcout << "No decision made!" << "\n";} // no decision
 
         double ndt; 
@@ -61,12 +62,13 @@ Rcpp::List simDDMCtrial(double mu_c, int b, int A1, int A2, int tau1, int tau2,
 // [[Rcpp::export]]
 Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
     /**
-     @brief Simulate multiple DDMC trials. Note: assuming a1 = a2 = 2
+     @brief Simulate multiple DDMC trials with a1 = a2 = 2
      @param df R DataFrame with names of DDMC parameters as columnames
      @param N_sim number of simulations per parameter set
      @return reaction time rt (ms) and decision of trial (1 = correct, -1 = incorrect)
      */
 
+    // get values
     Rcpp::NumericVector mu_c = df["mu_c"], dt = df["dt"], sigma = df["sigma"], 
                         ndt_m = df["ndt_m"], ndt_sd = df["ndt_sd"];
     Rcpp::IntegerVector b = df["b"], A1 = df["A1"], A2 = df["A2"], 
@@ -147,24 +149,24 @@ Rcpp::List simDDMC(Rcpp::DataFrame df, int N_sim) {
 Rcpp::List simDDMCactivation(int N, double mu_c, int b, int A1, int A2, 
     int tau1, int tau2, int auto1, int auto2) {
         /**
-         @brief Simulate activation functions of DDMC. Note: assuming a1 = a2 = 2
-         @param N number of timepoints to be simulated [ms]
-         @param mu_c drift rate of controlled process
+         @brief Simulate activation functions of DDMC with a1 = a2 = 2
+         @param N number of timepoints to be simulated
+         @param mu_c drift rate of the controlled process
          @param b boundary / threshold 
-         @param A1, A2 amplitudes of automatic activations
-         @param tau1, tau2 timepoint of max automatic activation 
+         @param A1, A2 amplitudes of the automatic activations
+         @param tau1, tau2 timepoint of the max automatic activation 
          @param dt time discretization
          @param auto1, auto2 type of automatic process (1 = congruent, -1 = incongruent)
-         @return reaction time rt and decision of trial (-1 = incorrect, 1 = correct)
+         @return trajectories of activation functions for the four processes
+                    (controlled, automatic 1, automatic 2, superimposed)
          */
 
-        double X = 0.0; 
         std::vector<double> auto1_traj;         // first automatic process
         std::vector<double> auto2_traj;         // second automatic process
         std::vector<double> cont_traj;          // controlled process
         std::vector<double> super_traj;
         
-        for (double t = 0; t < N; t++) {
+        for (double t = 1; t < N; t++) {
             // activation of automatic processes
             double mu_a1 = auto1 * A1 * exp(-t / tau1) * ((t * exp(1)) / tau1); 
             double mu_a2 = auto2 * A2 * exp(-t / tau2) * ((t * exp(1)) / tau2); 
