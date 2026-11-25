@@ -103,17 +103,16 @@ server <- function(input, output, session) {
     abline(h = 0, lty = 3)
     abline(h = c(-input$b, input$b), lty = 2)
     lines(M$cont_traj[1:input$N], col = "black")
-    lines(M$auto1_traj[1:input$N], col = "green")
-    lines(M$auto2_traj[1:input$N], col = "blue")
-    lines(M$super_traj[1:input$N], col = "red", lwd = 2)
+    lines(M$auto1_traj[1:input$N], col = "#0173B2")
+    lines(M$auto2_traj[1:input$N], col = "#DE8F05")
+    lines(M$super_traj[1:input$N], col = "#029E73", lwd = 2)
     legend("bottomright",
-      col = c("black", "green", "blue", "red"), lty = 1,
+      col = c("black", "#0173B2", "#DE8F05", "#029E73"), lty = 1,
       legend = c("Controlled", "Automatic 1", "Automatic 2", "Superimposed")
     )
   })
   
 
-  
   # simulate data for nSim trials, recompute only if input changes
   # used in delta plots, meanRT, meanER, density plot
   SimData <- reactive({
@@ -189,7 +188,6 @@ server <- function(input, output, session) {
     } else {
       legend("topleft", legend = c("Congruent","Incongruent"), 
              col = c("blue", "red"), lty = 1) 
-      
     }
   })
   
@@ -286,7 +284,7 @@ server <- function(input, output, session) {
     a_ci <- Sim[Sim$auto1 == 1 & Sim$auto2 == -1, ]
     a_ic <- Sim[Sim$auto1 == -1 & Sim$auto2 == 1, ]
     a_ii <- Sim[Sim$auto1 == -1 & Sim$auto2 == -1, ]
-    
+
     caf_cc <- tapply(a_cc$error, 
       cut(a_cc$rt, breaks = quantile(a_cc$rt, c(0, .25, .50, .75, 1)), 
           include.lowest = TRUE), mean)
@@ -302,17 +300,18 @@ server <- function(input, output, session) {
     
     plot(1:4, 1-caf_cc, type = "n", ylim = c(0, 1), main = "CAFs", 
          ylab = "Accuracy", xlab = "Bin")
-    lines(1-caf_cc, col = "green")
-    points(1-caf_cc, col = "green", pch = 16)
-    lines(1-caf_ci, col = "blue")
-    points(1-caf_ci, col = "blue", pch = 16)
-    lines(1-caf_ic, col = "orange")
-    points(1-caf_ic, col = "orange", pch = 16)
-    lines(1-caf_ii, col = "red")
-    points(1-caf_ii, col = "red", pch = 16)
+    lines(1-caf_cc, col = "#029E73")
+    points(1-caf_cc, col = "#029E73", pch = 16)
+    lines(1-caf_ci, col = "#0173B2")
+    points(1-caf_ci, col = "#0173B2", pch = 16)
+    lines(1-caf_ic, col = "#CC78BC")
+    points(1-caf_ic, col = "#CC78BC", pch = 16)
+    lines(1-caf_ii, col = "#D55E00")
+    points(1-caf_ii, col = "#D55E00", pch = 16)
     
-    legend("bottomright", title = "Condition", legend = c("CC", "CI", "IC", "II"), 
-           col = c("green", "blue", "orange", "red"), lty = 1)
+    legend("bottomright", title = "Condition", 
+           legend = c("CC", "CI", "IC", "II"), 
+           col = c("#029E73", "#0173B2", "#CC78BC", "#D55E00"), lty = 1)
     
   })
   
@@ -325,12 +324,12 @@ server <- function(input, output, session) {
     d_ii <- Sim[Sim$auto1 == -1 & Sim$auto2 == -1, ]
     
     plot(density(d_cc$rt), type = "n", main = "Density", xlab = "RT")
-    lines(density(d_cc$rt), col = "green")
-    lines(density(d_ci$rt), col = "blue")
-    lines(density(d_ic$rt), col = "orange")
-    lines(density(d_ii$rt), col = "red")
+    lines(density(d_cc$rt), col = "#029E73")
+    lines(density(d_ci$rt), col = "#0173B2")
+    lines(density(d_ic$rt), col = "#CC78BC")
+    lines(density(d_ii$rt), col = "#D55E00")
     legend("topright", title = "Condition", legend = c("CC", "CI", "IC", "II"), 
-           col = c("green", "blue", "orange", "red"), lty = 1)
+           col = c("#029E73", "#0173B2", "#CC78BC", "#D55E00"), lty = 1)
   })
   
   output$XPlot <- renderPlot({  # plot simulated trials
